@@ -89,7 +89,15 @@ function createJsonResponse(data) {
 // -------------------------------------------------------------
 
 /**
- * 自動建立或取得「使用者權限」工作表，並寫入預設設定
+ * 方法一：手動執行（推薦，可立刻看到結果）
+ * 1. 將 GAS 程式碼貼到您的 Google Apps Script 編輯器中後。
+ * 2. 在編輯器上方的工具列，有一個下拉式選單（通常預設顯示 doGet 或 doPost）。
+ * 3. 點開那個下拉選單，找到並選擇 getOrCreatePermissionsSheet_。
+ * 4. 點擊旁邊的 「執行」 按鈕。
+ * 5. （如果是第一次執行，可能會跳出權限審查要求，請允許授權）。
+ * 6. 回到您的 Google Sheets 試算表，您就會看到系統已經瞬間建立好「使用者權限」分頁，並且把 Admin、SafetyUploader、DepartmentUploader 這三組範例帳號都自動建好了！
+ * 
+ * 自動建立或取得「使用者權限」工作表，並寫入預設設定 
  */
 function getOrCreatePermissionsSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
