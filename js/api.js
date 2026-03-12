@@ -60,5 +60,8 @@ const api = {
     getHistory: (caseId) => api.request('get_history', { caseId }),
 
     // 6. 手動稽催觸發
-    manualRemind: () => api.request('manual_remind')
+    manualRemind: () => api.request('manual_remind'),
+
+    // 7. 取得所有使用者 (Admin 專用)
+    getUsers: () => api.request('get_users')
 };

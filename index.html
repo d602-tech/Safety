@@ -11,96 +11,156 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-    <!-- 導覽列 -->
+    <!-- 1. 磨砂玻璃導覽列 -->
     <header class="top-nav">
-        <div class="logo">工安查核系統 <span>v5.0</span></div>
-        <div class="user-info" style="display: flex; align-items: center; gap: 12px;">
+        <div class="logo">工安查核系統 <span>v5.1</span></div>
+        
+        <div class="nav-actions">
+            <!-- 主題切換 -->
+            <select id="themeSelector" class="theme-selector" onchange="app.setTheme(this.value)">
+                <option value="dark">🌑 暗色模式</option>
+                <option value="light">☀️ 亮色模式</option>
+                <option value="indigo">🔮 靛藍主題</option>
+            </select>
+
+            <!-- 說明小幫手按鈕 -->
+            <button class="btn btn-icon" onclick="app.toggleInstructions()" title="使用說明">💡</button>
+
+            <!-- 使用者與登出 -->
             <span id="userNameDisplay">尚未登入</span>
-            <!-- Google 登入按鈕容器 -->
             <div id="googleLoginBtn"></div>
             <button id="logoutBtn" class="btn btn-outline hidden" onclick="app.logout()">登出</button>
         </div>
     </header>
 
-    <!-- 儀表板 stats -->
-    <section class="dashboard">
-        <div class="stat-card" data-filter="all" onclick="app.setQuickFilter('all')">
-            <div class="title">總案件</div>
-            <div class="value" id="stat-total">0</div>
-        </div>
-        <div class="stat-card" data-filter="active" onclick="app.setQuickFilter('active')">
-            <div class="title">進行中</div>
-            <div class="value" id="stat-active">0</div>
-        </div>
-        <div class="stat-card warning" data-filter="overdue" onclick="app.setQuickFilter('overdue')">
-            <div class="title">已逾期</div>
-            <div class="value" id="stat-overdue">0</div>
-        </div>
-        <div class="stat-card success" data-filter="closed" onclick="app.setQuickFilter('closed')">
-            <div class="title">已結案</div>
-            <div class="value" id="stat-closed">0</div>
-        </div>
-    </section>
+    <div class="main-container">
+        <!-- 2. 使用說明卡片 (預設隱藏) -->
+        <section id="instructionCard" class="instruction-card">
+            <h3>📖 使用說明小幫手</h3>
+            <div class="instruction-grid">
+                <div class="step-item">
+                    <b>Step 1. 登錄案件</b>
+                    管理員或工安人員可點擊「登錄新案件」按鈕，選擇工程與日期。
+                </div>
+                <div class="step-item">
+                    <b>Step 2. 原始單上傳</b>
+                    由工安組上傳原始查核單（PDF/照片），系統進入第2階段。
+                </div>
+                <div class="step-item">
+                    <b>Step 3. 部門回覆</b>
+                    主辦部門改善完成後，上傳核章版。若無缺失可由 Admin 執行「略過」。
+                </div>
+                <div class="step-item">
+                    <b>Step 4. 結案</b>
+                    上傳最終結案 PDF，案件進入「已結案」狀態並紀錄日期。
+                </div>
+            </div>
+            <p style="margin-top:15px; font-size:0.8rem; opacity:0.8;">* 超過14天未結案將自動標記為紅色逾期，並發送郵件提醒。</p>
+        </section>
 
-    <!-- 控制區塊：篩選與新增 -->
-    <section class="controls">
-        <div class="filters">
-            <select id="filterDepartment" onchange="app.renderTable()">
-                <option value="">所有主辦部門</option>
-            </select>
-            <select id="filterStatus" onchange="app.renderTable()">
-                <option value="">所有狀態</option>
-                <option value="第1階段-已登錄">第1階段</option>
-                <option value="第2階段-改善單已上傳">第2階段</option>
-                <option value="第3階段-工作隊版已處理">第3階段</option>
-                <option value="第4階段-已結案">第4階段</option>
-            </select>
-            <button class="btn btn-outline" onclick="app.clearFilters()">清除篩選</button>
-        </div>
-        <div class="actions">
-            <button id="btnNewCase" class="btn btn-primary hidden" onclick="app.openNewCaseModal()">+ 登錄新案件</button>
-            <button id="btnRemind" class="btn btn-warning hidden" onclick="app.triggerManualRemind()">手動稽催</button>
-        </div>
-    </section>
+        <!-- 3. 儀表板 stats -->
+        <section class="dashboard">
+            <div class="stat-card" data-filter="all" onclick="app.setQuickFilter('all')">
+                <div class="title">總案件</div>
+                <div class="value" id="stat-total">0</div>
+            </div>
+            <div class="stat-card" data-filter="active" onclick="app.setQuickFilter('active')">
+                <div class="title">進行中</div>
+                <div class="value" id="stat-active">0</div>
+            </div>
+            <div class="stat-card warning" data-filter="overdue" onclick="app.setQuickFilter('overdue')">
+                <div class="title">已逾期</div>
+                <div class="value" id="stat-overdue">0</div>
+            </div>
+            <div class="stat-card success" data-filter="closed" onclick="app.setQuickFilter('closed')">
+                <div class="title">已結案</div>
+                <div class="value" id="stat-closed">0</div>
+            </div>
+        </section>
 
-    <!-- 案件列表 -->
-    <main class="case-list-container">
-        <div id="loading" class="loading hidden" style="text-align:center; padding: 20px;">載入中...請稍候</div>
-        <table class="case-table" id="caseTable">
-            <thead>
-                <tr>
-                    <th>工程簡稱</th>
-                    <th>承攬商</th>
-                    <th>主辦部門</th>
-                    <th>查核日期</th>
-                    <th>最晚核章日</th>
-                    <th>辦理狀態</th>
-                    <th>操作</th>
-                </tr>
-            </thead>
-            <tbody id="caseListBody">
-                <tr><td colspan="7" style="text-align:center;">請先完成 Google 登入</td></tr>
-            </tbody>
-        </table>
-    </main>
+        <!-- 4. 控制區塊：篩選與新增 -->
+        <section class="controls">
+            <div class="filter-group">
+                <select id="filterDepartment" onchange="app.renderTable()">
+                    <option value="">所有主辦部門</option>
+                </select>
+                <select id="filterStatus" onchange="app.renderTable()">
+                    <option value="">所有狀態</option>
+                    <option value="第1階段-已登錄">第1階段</option>
+                    <option value="第2階段-改善單已上傳">第2階段</option>
+                    <option value="第3階段-工作隊版已處理">第3階段</option>
+                    <option value="第4階段-已結案">第4階段</option>
+                </select>
+                <button class="btn btn-outline" style="border-width:1px;" onclick="app.clearFilters()">清除篩選</button>
+            </div>
+            <div class="actions">
+                <!-- 管理者清單切換按鈕 -->
+                <button id="btnAdminUsers" class="btn btn-outline hidden" onclick="app.toggleView('users')">👥 權限管理</button>
+                <button id="btnBackToCases" class="btn btn-outline hidden" onclick="app.toggleView('cases')">📋 返回案件</button>
+                
+                <button id="btnNewCase" class="btn btn-primary hidden" onclick="app.openNewCaseModal()">+ 登錄新案件</button>
+                <button id="btnRemind" class="btn btn-warning hidden" onclick="app.triggerManualRemind()">手動稽催</button>
+            </div>
+        </section>
+
+        <!-- 5. 案件列表或使用者清單 -->
+        <main id="mainView">
+            <div id="loading" class="loading hidden" style="text-align:center; padding: 40px;">
+                <div class="loading-spinner">載入中...請稍候</div>
+            </div>
+
+            <!-- 案件清單視圖 -->
+            <div id="viewCases" class="card-table-wrapper">
+                <table class="case-table" id="caseTable">
+                    <thead>
+                        <tr>
+                            <th>工程簡稱</th>
+                            <th>承攬商</th>
+                            <th>主辦部門</th>
+                            <th>查核日期</th>
+                            <th>最晚核章日</th>
+                            <th>辦理狀態</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="caseListBody">
+                        <tr><td colspan="7" style="text-align:center;">請先完成 Google 登入</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 管理者使用者清單視圖 (預設隱藏) -->
+            <div id="viewUsers" class="card-table-wrapper hidden">
+                <table class="case-table">
+                    <thead>
+                        <tr>
+                            <th>姓名</th>
+                            <th>電子信箱</th>
+                            <th>角色</th>
+                            <th>部門</th>
+                            <th>狀態</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userListBody"></tbody>
+                </table>
+            </div>
+        </main>
+    </div>
 
     <!-- 共用模態框 -->
-    <div id="modalOverlay" class="modal-overlay hidden">
+    <div id="modalOverlay" class="modal-overlay hidden" onclick="if(event.target === this) app.closeModal()">
         <div class="modal">
             <div class="modal-header">
                <h3 id="modalTitle">操作</h3>
-               <button class="close-btn" onclick="app.closeModal()">&times;</button>
+               <button class="btn" style="background:none; font-size:1.5rem;" onclick="app.closeModal()">&times;</button>
             </div>
-            <div class="modal-body" id="modalBody">
-                <!-- 動態內容注入 -->
-            </div>
-            <div id="modalLoading" class="hidden" style="text-align:center; margin-top:10px; color:var(--primary);">
-                處理中，請稍候...
+            <div class="modal-body" id="modalBody"></div>
+            <div id="modalLoading" class="hidden" style="text-align:center; margin-top:20px;">
+                <div class="loading-spinner">處理中，請稍候...</div>
             </div>
         </div>
     </div>
 
-    <!-- Github Action 動態產生之變數檔 -->
     <script src="js/config.js"></script>
     <script src="js/api.js"></script>
     <script src="js/app.js"></script>

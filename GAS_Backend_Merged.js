@@ -98,6 +98,13 @@ function doPost(e) {
         result = sendManualReminders(summary);
         break;
 
+      case 'get_users':
+        if(roleData.role !== 'Admin') {
+            throw new Error("只有 Admin 有權限查看使用者列表。");
+        }
+        result = getAllUsers_();
+        break;
+
       default:
         throw new Error("未知的 API 操作: " + action);
     }
@@ -133,14 +140,14 @@ function verifyGoogleToken_(token) {
  * 方法一：手動執行（推薦，可立刻看到結果）
  * 1. 將 GAS_Backend_Merged.js 的所有程式碼貼到您的 Google Apps Script 編輯器中後。
  * 2. 在編輯器上方的工具列，有一個下拉式選單（通常預設顯示 doGet 或 doPost）。
- * 3. 點開那個下拉選單，找到並選擇 getOrCreatePermissionsSheet_。
+ * 3. 點開那個下拉選單，找到並選擇 getOrCreatePermissionsSheet。
  * 4. 點擊旁邊的 「執行」 按鈕。
  * 5. （如果是第一次執行，可能會跳出權限審查要求，請允許授權）。
  * 6. 回到您的 Google Sheets 試算表，您就會看到系統已經瞬間建立好「使用者權限」分頁，並且把 Admin、SafetyUploader、DepartmentUploader 這三組範例帳號都自動建好了！
  * 
  * 自動建立或取得「使用者權限」工作表，並寫入預設設定 
  */
-function getOrCreatePermissionsSheet_() {
+function getOrCreatePermissionsSheet() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheetName = '使用者權限';
   let sheet = ss.getSheetByName(sheetName);
@@ -173,7 +180,7 @@ function getOrCreatePermissionsSheet_() {
 
 /** 比對信箱是否註冊及是否啟用 */
 function checkUserPermissions_(email) {
-  const sheet = getOrCreatePermissionsSheet_();
+  const sheet = getOrCreatePermissionsSheet();
   const data = sheet.getRange(2, 1, sheet.getLastRow() - 1 || 1, 5).getValues();
   
   for (let i = 0; i < data.length; i++) {
@@ -191,6 +198,25 @@ function checkUserPermissions_(email) {
     }
   }
   throw new Error('系統中找不到信箱 ' + email + '的權限記錄，請管理員於「使用者權限」工作表中新增您的資料並打勾啟用。');
+}
+
+/** 取得所有使用者清單 (僅限 Admin) */
+function getAllUsers_() {
+  try {
+    const sheet = getOrCreatePermissionsSheet();
+    if (sheet.getLastRow() < 2) return { success: true, data: [] };
+    const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 5).getValues();
+    const users = values.map(row => ({
+      email: row[0],
+      name: row[1],
+      role: row[2],
+      department: row[3],
+      active: row[4]
+    }));
+    return { success: true, data: users };
+  } catch (e) {
+    throw new Error("無法讀取使用者清單: " + e.message);
+  }
 }
 
 function getInitialDataForUser_(roleData) {
