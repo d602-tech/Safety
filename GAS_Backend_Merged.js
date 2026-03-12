@@ -17,6 +17,7 @@ const SHEET_CHANGE_LOG = '變更記錄';
 const SHEET_TEMPLATES = '範例檔案';
 const SHEET_SYSTEM_SETTINGS = '系統設定';
 const SHEET_ANNUAL_PLAN = '年度計畫';
+const SHEET_DEFICIENCY_DB = '缺失清單';
 
 const STATUS = {
   STAGE1: '第1階段-已登錄',
@@ -103,6 +104,24 @@ function doPost(e) {
             throw new Error("只有 Admin 有權限查看使用者列表。");
         }
         result = getAllUsers_();
+        break;
+
+      case 'add_project':
+        if(roleData.role !== 'Admin') throw new Error("無權限執行此操作。");
+        result = addProject_(payload);
+        break;
+
+      case 'delete_project':
+        if(roleData.role !== 'Admin') throw new Error("無權限執行此操作。");
+        result = deleteProject_(payload.serial);
+        break;
+
+      case 'get_deficiencies':
+        result = getDeficiencies_(roleData);
+        break;
+
+      case 'update_deficiency':
+        result = updateDeficiency_(payload, roleData.email);
         break;
 
       default:
@@ -479,11 +498,82 @@ function checkAndSendNotifications() {
 
 function getProjectOptions_() {
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_PROJECT_DB);
-  if (sheet.getLastRow() < 2) return [];
+  if (!sheet || sheet.getLastRow() < 2) return [];
   const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 5).getValues();
   return data.map(function (row) {
     return { serial: row[0], abbr: row[1], name: row[2], contractor: row[3], department: row[4] };
   }).filter(function (p) { return p.abbr; });
+}
+
+function addProject_(p) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(SHEET_PROJECT_DB);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_PROJECT_DB);
+    sheet.appendRow(['流水號', '工程簡稱', '工程名稱', '承攬商', '主辦部門']);
+  }
+  const serial = 'P' + new Date().getTime();
+  sheet.appendRow([serial, p.abbr, p.name, p.contractor, p.department]);
+  return { success: true, projects: getProjectOptions_() };
+}
+
+function deleteProject_(serial) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(SHEET_PROJECT_DB);
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] == serial) {
+      sheet.deleteRow(i + 1);
+      return { success: true, projects: getProjectOptions_() };
+    }
+  }
+  return { success: false, message: "找不到該工程項目" };
+}
+
+function getOrCreateDeficiencySheet_() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(SHEET_DEFICIENCY_DB);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_DEFICIENCY_DB);
+    const headers = [['缺失ID', '案件ID', '工程簡稱', '缺失內容', '主辦部門', '改善期限', '狀態', '錄入者']];
+    sheet.getRange(1, 1, 1, headers[0].length).setValues(headers).setBackground('#fef3c7').setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function getDeficiencies_(roleData) {
+  const sheet = getOrCreateDeficiencySheet_();
+  if (sheet.getLastRow() < 2) return { success: true, data: [] };
+  const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 8).getValues();
+  let list = data.map(row => ({
+    id: row[0], caseId: row[1], abbr: row[2], content: row[3], department: row[4],
+    deadline: row[5] instanceof Date ? Utilities.formatDate(row[5], Session.getScriptTimeZone(), 'yyyy-MM-dd') : row[5],
+    status: row[6], creator: row[7]
+  }));
+  if (roleData.role === 'DepartmentUploader') {
+    list = list.filter(d => d.department === roleData.department);
+  }
+  return { success: true, data: list };
+}
+
+function updateDeficiency_(p, email) {
+  const sheet = getOrCreateDeficiencySheet_();
+  const data = sheet.getDataRange().getValues();
+  if (p.id) {
+    // Update existing
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] == p.id) {
+        sheet.getRange(i + 1, 4, 1, 4).setValues([[p.content, p.department, p.deadline, p.status]]);
+        return { success: true };
+      }
+    }
+  } else {
+    // Create new
+    const newId = 'DEF' + new Date().getTime();
+    sheet.appendRow([newId, p.caseId, p.abbr, p.content, p.department, p.deadline, '待改善', email]);
+  }
+  return { success: true };
 }
 
 function getAuditRecords_() {

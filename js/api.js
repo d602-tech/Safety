@@ -63,5 +63,13 @@ const api = {
     manualRemind: () => api.request('manual_remind'),
 
     // 7. 取得所有使用者 (Admin 專用)
-    getUsers: () => api.request('get_users')
+    getUsers: () => api.request('get_users'),
+    
+    // 工程管理
+    addProject: (p) => api.request('add_project', p),
+    deleteProject: (serial) => api.request('delete_project', { serial }),
+    
+    // 缺失清單
+    getDeficiencies: () => api.request('get_deficiencies'),
+    updateDeficiency: (p) => api.request('update_deficiency', p)
 };

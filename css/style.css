@@ -271,6 +271,40 @@ body {
 
 .hidden { display: none !important; }
 
+/* 日曆容器 */
+.calendar-container {
+    display: flex; flex-direction: column; gap: 10px;
+}
+.cal-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.cal-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px;
+    background: var(--border); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+}
+.cal-header {
+    background: var(--bg-input); padding: 12px; text-align: center;
+    font-size: 0.8rem; font-weight: 700; color: var(--text-muted);
+}
+.cal-day {
+    background: var(--bg-card); min-height: 120px; padding: 10px;
+    transition: var(--transition); display: flex; flex-direction: column; gap: 4px;
+}
+.cal-day.today { background: rgba(99, 102, 241, 0.05); }
+.cal-day.other-month { opacity: 0.3; }
+.cal-date { font-size: 0.85rem; font-weight: 700; margin-bottom: 8px; }
+
+.cal-event {
+    font-size: 0.75rem; padding: 4px 8px; border-radius: 6px;
+    background: var(--primary); color: white; cursor: pointer;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cal-event.warning { background: var(--warning); }
+.cal-event.success { background: var(--success); }
+
+@media (max-width: 768px) {
+    .cal-day { min-height: 80px; padding: 5px; }
+    .cal-event { font-size: 0.65rem; padding: 2px 4px; }
+}
+
 /* 響應式微調 */
 @media (max-width: 1024px) {
     .workflow-container { grid-template-columns: repeat(2, 1fr); }

@@ -104,9 +104,12 @@
                 <div class="view-switch">
                     <button id="viewGridBtn" class="switch-btn active" onclick="app.toggleViewMode('grid')"><i class="fas fa-th-large"></i></button>
                     <button id="viewListBtn" class="switch-btn" onclick="app.toggleViewMode('list')"><i class="fas fa-list"></i></button>
+                    <button id="viewCalBtn" class="switch-btn" onclick="app.toggleViewMode('calendar')"><i class="fas fa-calendar-alt"></i></button>
                 </div>
             </div>
             <div class="actions">
+                <button id="btnDefList" class="btn btn-outline" onclick="app.toggleView('deficiencies')"><i class="fas fa-tasks"></i> 缺失清單</button>
+                <button id="btnProjMgmt" class="btn btn-outline" onclick="app.toggleView('projects')"><i class="fas fa-project-diagram"></i> 工程管理</button>
                 <button id="btnAdminUsers" class="btn btn-outline hidden" onclick="app.toggleView('users')"><i class="fas fa-users-cog"></i> 權限管理</button>
                 <button id="btnBackToCases" class="btn btn-outline hidden" onclick="app.toggleView('cases')"><i class="fas fa-arrow-left"></i> 返回案件</button>
                 <button id="btnRemind" class="btn btn-warning hidden" onclick="app.triggerManualRemind()"><i class="fas fa-paper-plane"></i> 手動稽催</button>
@@ -140,6 +143,49 @@
                         </tr>
                     </thead>
                     <tbody id="caseListBody"></tbody>
+                </table>
+            </div>
+
+            <!-- 日曆視圖 -->
+            <div id="viewCalendar" class="card-table-wrapper hidden" style="padding: 20px; background: var(--bg-card);">
+                <!-- 由 JS 動態生成日曆 -->
+                <div id="calendarContainer" class="calendar-container"></div>
+            </div>
+
+            <!-- 缺失清單視圖 -->
+            <div id="viewDeficiencies" class="card-table-wrapper hidden">
+                <table class="case-table">
+                    <thead>
+                        <tr>
+                            <th>工程簡稱</th>
+                            <th>缺失內容</th>
+                            <th>主辦部門</th>
+                            <th>改善期限</th>
+                            <th>狀態</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="defListBody"></tbody>
+                </table>
+            </div>
+
+            <!-- 工程管理視圖 -->
+            <div id="viewProjects" class="card-table-wrapper hidden">
+                <div style="padding: 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: flex-end;">
+                    <button class="btn btn-primary" onclick="app.openNewProjectModal()">+ 新增工程</button>
+                </div>
+                <table class="case-table">
+                    <thead>
+                        <tr>
+                            <th>流水號</th>
+                            <th>工程簡稱</th>
+                            <th>工程名稱</th>
+                            <th>承攬商</th>
+                            <th>部門</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="projListBody"></tbody>
                 </table>
             </div>
 
