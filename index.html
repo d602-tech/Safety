@@ -8,25 +8,18 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
     <!-- Google Identity Services -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://accounts.google.com/gsi/client" async d    <!-- 引入 FontAwesome 圖標 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <!-- 1. 磨砂玻璃導覽列 -->
     <header class="top-nav">
-        <div class="logo">工安查核系統 <span>v5.1</span></div>
-        
+        <div class="logo"><i class="fas fa-shield-alt"></i> 工安查核管理系統 <span>v5.2</span></div>
         <div class="nav-actions">
-            <!-- 主題切換 -->
             <select id="themeSelector" class="theme-selector" onchange="app.setTheme(this.value)">
                 <option value="dark">🌑 暗色模式</option>
                 <option value="light">☀️ 亮色模式</option>
                 <option value="indigo">🔮 靛藍主題</option>
             </select>
-
-            <!-- 說明小幫手按鈕 -->
-            <button class="btn btn-icon" onclick="app.toggleInstructions()" title="使用說明">💡</button>
-
-            <!-- 使用者與登出 -->
             <span id="userNameDisplay">尚未登入</span>
             <div id="googleLoginBtn"></div>
             <button id="logoutBtn" class="btn btn-outline hidden" onclick="app.logout()">登出</button>
@@ -34,85 +27,123 @@
     </header>
 
     <div class="main-container">
-        <!-- 2. 使用說明卡片 (預設隱藏) -->
-        <section id="instructionCard" class="instruction-card">
-            <h3>📖 使用說明小幫手</h3>
-            <div class="instruction-grid">
-                <div class="step-item">
-                    <b>Step 1. 登錄案件</b>
-                    管理員或工安人員可點擊「登錄新案件」按鈕，選擇工程與日期。
-                </div>
-                <div class="step-item">
-                    <b>Step 2. 原始單上傳</b>
-                    由工安組上傳原始查核單（PDF/照片），系統進入第2階段。
-                </div>
-                <div class="step-item">
-                    <b>Step 3. 部門回覆</b>
-                    主辦部門改善完成後，上傳核章版。若無缺失可由 Admin 執行「略過」。
-                </div>
-                <div class="step-item">
-                    <b>Step 4. 結案</b>
-                    上傳最終結案 PDF，案件進入「已結案」狀態並紀錄日期。
-                </div>
-            </div>
-            <p style="margin-top:15px; font-size:0.8rem; opacity:0.8;">* 超過14天未結案將自動標記為紅色逾期，並發送郵件提醒。</p>
-        </section>
-
-        <!-- 3. 儀表板 stats -->
+        <!-- 1. 儀表板 stats -->
         <section class="dashboard">
             <div class="stat-card" data-filter="all" onclick="app.setQuickFilter('all')">
-                <div class="title">總案件</div>
-                <div class="value" id="stat-total">0</div>
+                <div class="stat-icon"><i class="fas fa-layer-group"></i></div>
+                <div class="stat-info">
+                    <div class="title">總案件</div>
+                    <div class="value" id="stat-total">0</div>
+                </div>
             </div>
             <div class="stat-card" data-filter="active" onclick="app.setQuickFilter('active')">
-                <div class="title">進行中</div>
-                <div class="value" id="stat-active">0</div>
+                <div class="stat-icon"><i class="fas fa-spinner"></i></div>
+                <div class="stat-info">
+                    <div class="title">進行中</div>
+                    <div class="value" id="stat-active">0</div>
+                </div>
             </div>
             <div class="stat-card warning" data-filter="overdue" onclick="app.setQuickFilter('overdue')">
-                <div class="title">已逾期</div>
-                <div class="value" id="stat-overdue">0</div>
+                <div class="stat-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                <div class="stat-info">
+                    <div class="title">已逾期</div>
+                    <div class="value" id="stat-overdue">0</div>
+                </div>
             </div>
             <div class="stat-card success" data-filter="closed" onclick="app.setQuickFilter('closed')">
-                <div class="title">已結案</div>
-                <div class="value" id="stat-closed">0</div>
+                <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                <div class="stat-info">
+                    <div class="title">已結案</div>
+                    <div class="value" id="stat-closed">0</div>
+                </div>
             </div>
         </section>
 
-        <!-- 4. 控制區塊：篩選與新增 -->
+        <!-- 2. 操作流程說明 (參考圖樣式) -->
+        <section class="workflow-section">
+            <h3>📖 操作流程說明</h3>
+            <div class="workflow-container">
+                <div class="flow-item step1">
+                    <div class="flow-header"><div class="dot"></div> 第1階段 - 登錄查核地點與日期</div>
+                    <div class="flow-content">由【查核人員或管理員】登錄案件地點、日期及工程簡稱。</div>
+                    <div class="flow-footer" onclick="app.openNewCaseModal()"><i class="fas fa-plus-circle"></i> 前往登錄頁面</div>
+                </div>
+                <div class="flow-item step2">
+                    <div class="flow-header"><div class="dot"></div> 第2階段 - 上傳工安核紀錄及改善單</div>
+                    <div class="flow-content">由【查核人員】上傳原始工安核紀錄及單項改善清單。</div>
+                    <div class="flow-footer"><i class="fas fa-upload"></i> 上傳文件</div>
+                </div>
+                <div class="flow-item step3">
+                    <div class="flow-header"><div class="dot"></div> 第3階段 - 上傳工作隊核章版</div>
+                    <div class="flow-content">由【受查部門人員】上傳工安查核紀錄核章版資料。</div>
+                    <div class="flow-footer"><i class="fas fa-file-signature"></i> 上傳核章版</div>
+                </div>
+                <div class="flow-item step4">
+                    <div class="flow-header"><div class="dot"></div> 第4階段 - 上傳核章完成版</div>
+                    <div class="flow-content">由【查核人員或管理員】上傳工安查核紀錄結案資料。</div>
+                    <div class="flow-footer"><i class="fas fa-check-double"></i> 完成結案</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. 控制區塊：篩選與視圖切換 -->
         <section class="controls">
             <div class="filter-group">
                 <select id="filterDepartment" onchange="app.renderTable()">
-                    <option value="">所有主辦部門</option>
+                    <option value="">全部部門</option>
                 </select>
                 <select id="filterStatus" onchange="app.renderTable()">
-                    <option value="">所有狀態</option>
+                    <option value="">全部狀態</option>
                     <option value="第1階段-已登錄">第1階段</option>
                     <option value="第2階段-改善單已上傳">第2階段</option>
                     <option value="第3階段-工作隊版已處理">第3階段</option>
                     <option value="第4階段-已結案">第4階段</option>
                 </select>
-                <button class="btn btn-outline" style="border-width:1px;" onclick="app.clearFilters()">清除篩選</button>
+                <div class="view-switch">
+                    <button id="viewGridBtn" class="switch-btn active" onclick="app.toggleViewMode('grid')"><i class="fas fa-th-large"></i></button>
+                    <button id="viewListBtn" class="switch-btn" onclick="app.toggleViewMode('list')"><i class="fas fa-list"></i></button>
+                </div>
             </div>
             <div class="actions">
-                <!-- 管理者清單切換按鈕 -->
-                <button id="btnAdminUsers" class="btn btn-outline hidden" onclick="app.toggleView('users')">👥 權限管理</button>
-                <button id="btnBackToCases" class="btn btn-outline hidden" onclick="app.toggleView('cases')">📋 返回案件</button>
-                
-                <button id="btnNewCase" class="btn btn-primary hidden" onclick="app.openNewCaseModal()">+ 登錄新案件</button>
-                <button id="btnRemind" class="btn btn-warning hidden" onclick="app.triggerManualRemind()">手動稽催</button>
+                <button id="btnAdminUsers" class="btn btn-outline hidden" onclick="app.toggleView('users')"><i class="fas fa-users-cog"></i> 權限管理</button>
+                <button id="btnBackToCases" class="btn btn-outline hidden" onclick="app.toggleView('cases')"><i class="fas fa-arrow-left"></i> 返回案件</button>
+                <button id="btnRemind" class="btn btn-warning hidden" onclick="app.triggerManualRemind()"><i class="fas fa-paper-plane"></i> 手動稽催</button>
+                <button id="btnNewCase" class="btn btn-primary hidden" onclick="app.openNewCaseModal()"><i class="fas fa-plus"></i> 登錄查核</button>
             </div>
         </section>
 
-        <!-- 5. 案件列表或使用者清單 -->
+        <!-- 4. 案件視圖內容 -->
         <main id="mainView">
             <div id="loading" class="loading hidden" style="text-align:center; padding: 40px;">
-                <div class="loading-spinner">載入中...請稍候</div>
+                <div class="loading-spinner">載入中...</div>
             </div>
 
-            <!-- 案件清單視圖 -->
-            <div id="viewCases" class="card-table-wrapper">
-                <table class="case-table" id="caseTable">
+            <!-- 網格視圖 (預設) -->
+            <div id="viewCasesGrid" class="grid-view">
+                <!-- 由 JS 動態渲染卡片 -->
+            </div>
+
+            <!-- 列表視圖 -->
+            <div id="viewCasesList" class="card-table-wrapper hidden">
+                <table class="case-table">
                     <thead>
+                        <tr>
+                            <th>工程簡稱</th>
+                            <th>承攬商</th>
+                            <th>主辦部門</th>
+                            <th>查核日期</th>
+                            <th>最晚核章</th>
+                            <th>狀態</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="caseListBody"></tbody>
+                </table>
+            </div>
+
+            <!-- 權限管理視圖 -->
+            <div id="viewUsers" class="card-table-wrapper hidden">
+                  <thead>
                         <tr>
                             <th>工程簡稱</th>
                             <th>承攬商</th>
