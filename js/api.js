@@ -1,7 +1,7 @@
 /**
  * 負責與 GAS 後端溝通的 API 模組
  */
-const GAS_URL = 'https://script.google.com/macros/s/AKfycby_Your_Id_Here/exec'; // ⚠️ 請替換為您 GAS 部署的 Web App URL
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzUoQVnY9eLJSKCCVCjg259y9uJuTC4tLMh6n0-ldWDa0RQUpC5YusYAm5hVjxB5_GY/exec'; // ⚠️ 請替換為您 GAS 部署的 Web App URL
 
 let _authToken = null; // 存放 Google 登入後核發的 JWT ID Token
 
@@ -29,12 +29,12 @@ const api = {
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // 避免觸發 CORS 複雜預檢
                 body: JSON.stringify({ action, payload })
             });
-            
+
             const result = await response.json();
-            
+
             // 處理 GAS 傳回的業務邏輯錯誤
             if (!result.success) throw new Error(result.message || '伺服器未知的錯誤');
-            
+
             return result;
         } catch (error) {
             console.error(`API Error [${action}]:`, error);
@@ -49,11 +49,11 @@ const api = {
     createCase: (data) => api.request('create_case', data),
 
     // 3. 上傳檔案 (支援 base64)
-    uploadFile: (caseId, stage, fileBase64, fileName, modifierName) => 
+    uploadFile: (caseId, stage, fileBase64, fileName, modifierName) =>
         api.request('upload_file', { caseId, stage, fileBase64, fileName, modifier: modifierName }),
 
     // 4. 略過 Stage3
-    skipStage3: (caseId, reason, modifierName) => 
+    skipStage3: (caseId, reason, modifierName) =>
         api.request('skip_stage3', { caseId, reason, modifier: modifierName }),
 
     // 5. 取得案件歷史記錄

@@ -3,7 +3,7 @@
  */
 
 // ⚠️ 替換為你在 Google Cloud 申請的 OAuth Client ID
-const GOOGLE_CLIENT_ID = "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"; 
+const GOOGLE_CLIENT_ID = "791038911460-8tfq97vhrvr4iaq5r3s1ti1abfpuddd9.apps.googleusercontent.com";
 
 const app = {
     state: {
@@ -41,16 +41,16 @@ const app = {
         try {
             // 向 GAS 後端傳遞 Token，進行解析、驗證信箱與比對權限
             const res = await api.init();
-            
+
             // 根據 GAS 的回傳結果設定本地狀態
-            app.state.user = { 
-                email: res.data.email, 
-                role: res.data.role, 
-                department: res.data.department 
+            app.state.user = {
+                email: res.data.email,
+                role: res.data.role,
+                department: res.data.department
             };
             app.state.cases = res.data.cases || [];
             app.state.projects = res.data.projects || [];
-            
+
             document.getElementById('userNameDisplay').innerText = `${app.state.user.email} (${app.state.user.role})`;
             document.getElementById('logoutBtn').classList.remove('hidden');
 
@@ -117,7 +117,7 @@ const app = {
     renderTable: () => {
         const tbody = document.getElementById('caseListBody');
         tbody.innerHTML = '';
-        
+
         if (!app.state.user) {
             tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">請先完成 Google 登入</td></tr>`;
             return;
@@ -126,7 +126,7 @@ const app = {
         const deptFilter = document.getElementById('filterDepartment').value;
         const statusFilter = document.getElementById('filterStatus').value;
         const today = new Date();
-        today.setHours(0,0,0,0);
+        today.setHours(0, 0, 0, 0);
 
         // 篩選邏輯
         const filteredCases = app.state.cases.filter(c => {
@@ -143,7 +143,7 @@ const app = {
             return true;
         });
 
-        if(filteredCases.length === 0) {
+        if (filteredCases.length === 0) {
             tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">無符合條件的案件</td></tr>`;
             return;
         }
@@ -152,7 +152,7 @@ const app = {
             const dueDate = new Date(c['最晚應核章日期']);
             const isOverdue = c['辦理狀態'] !== '第4階段-已結案' && dueDate < today;
             const tr = document.createElement('tr');
-            
+
             tr.innerHTML = `
                 <td>${c['工程簡稱']}</td>
                 <td>${c['承攬商']}</td>
@@ -167,9 +167,9 @@ const app = {
     },
 
     updateStats: () => {
-        if(!app.state.cases) return;
+        if (!app.state.cases) return;
         const today = new Date();
-        today.setHours(0,0,0,0);
+        today.setHours(0, 0, 0, 0);
 
         document.getElementById('stat-total').innerText = app.state.cases.length;
         document.getElementById('stat-active').innerText = app.state.cases.filter(c => c['辦理狀態'] !== '第4階段-已結案').length;
@@ -180,7 +180,7 @@ const app = {
     /** ======================== Modal 與業務操作 ======================== */
     showLoading: (show) => {
         const l = document.getElementById('loading');
-        if(show) l.classList.remove('hidden'); else l.classList.add('hidden');
+        if (show) l.classList.remove('hidden'); else l.classList.add('hidden');
     },
 
     openModal: (title, htmlContent) => {
@@ -256,7 +256,7 @@ const app = {
 
         if (c['辦理狀態'] === '第1階段-已登錄' && isSafetyUploader) {
             content += app.getUploadSection(id, 'stage2', '🔴 上傳 Stage2: 原始改善單 (PDF/Image)', 'image/*,application/pdf');
-        } 
+        }
         else if (c['辦理狀態'] === '第2階段-改善單已上傳' && isSafetyUploader) {
             content += app.getUploadSection(id, 'stage3', '🟡 上傳 Stage3: 工作隊版改善單 (PDF)', 'application/pdf');
             content += `
@@ -265,7 +265,7 @@ const app = {
                 <input type="text" id="skipReason" placeholder="請輸入略過理由..." style="width:100%; box-sizing:border-box; margin-bottom:8px;">
                 <button class="btn btn-warning" style="width:100%;" onclick="app.submitSkip('${id}')">略過 Stage3 上傳</button>
             `;
-        } 
+        }
         else if (c['辦理狀態'] === '第3階段-工作隊版已處理' && isSafetyUploader) {
             content += app.getUploadSection(id, 'stage4', '🟢 上傳 Stage4: 結案核章版 (PDF) 並結案', 'application/pdf');
         }
@@ -314,7 +314,7 @@ const app = {
             // 重新初始化刷新完整狀態較安全
             const initRes = await api.init();
             app.state.cases = initRes.data.cases;
-            
+
             app.updateStats();
             app.renderTable();
             app.closeModal();
@@ -329,7 +329,7 @@ const app = {
     submitSkip: async (id) => {
         const reason = document.getElementById('skipReason').value;
         if (!reason) return alert("請填寫略過理由！");
-        
+
         document.getElementById('modalLoading').classList.remove('hidden');
         try {
             await api.skipStage3(id, reason, app.state.user.email);
@@ -352,8 +352,8 @@ const app = {
             const res = await api.getHistory(id);
             const records = res.data;
             let html = `<ul>`;
-            if(records.length === 0) html += `<li>尚無檔案記錄。</li>`;
-            
+            if (records.length === 0) html += `<li>尚無檔案記錄。</li>`;
+
             records.forEach(r => {
                 html += `
                     <li style="margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid var(--border);">
@@ -364,7 +364,7 @@ const app = {
                 `;
             });
             html += `</ul><button class="btn btn-outline" style="width:100%" onclick="app.openManage('${id}')">返回管理</button>`;
-            
+
             document.getElementById('modalTitle').innerText = `檔案歷史紀錄`;
             document.getElementById('modalBody').innerHTML = html;
         } catch (e) {
@@ -376,12 +376,12 @@ const app = {
 
     // 稽催測試
     triggerManualRemind: async () => {
-        if(confirm("確定要觸發手動稽催通知嗎？系統將由後端直接抓取名單夾帶原版改善單並發信。")) {
+        if (confirm("確定要觸發手動稽催通知嗎？系統將由後端直接抓取名單夾帶原版改善單並發信。")) {
             app.showLoading(true);
             try {
                 const res = await api.manualRemind();
                 alert(res.message || "發信成功");
-            } catch(e) {
+            } catch (e) {
                 alert("發信失敗: " + e.message);
             } finally {
                 app.showLoading(false);
