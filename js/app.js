@@ -176,12 +176,18 @@ const app = {
     /** ======================== 畫面渲染 ======================== */
     renderView: () => {
         if (!app.state.user) return;
-        
+        const filtered = app.getFilteredCases();
+        if (app.state.viewMode === 'grid') app.renderGrid(filtered);
+        else if (app.state.viewMode === 'list') app.renderList(filtered);
+        else if (app.state.viewMode === 'calendar') app.renderCalendar(filtered);
+    },
+
+    getFilteredCases: () => {
         const deptFilter = document.getElementById('filterDepartment')?.value || '';
         const statusFilter = document.getElementById('filterStatus')?.value || '';
         const todayStr = new Date().toISOString().split('T')[0];
 
-        const filtered = app.state.cases.filter(c => {
+        return app.state.cases.filter(c => {
             if (deptFilter && c['主辦部門'] !== deptFilter) return false;
             if (statusFilter && c['辦理狀態'] !== statusFilter) return false;
             const isClosed = c['辦理狀態'] === '第4階段-已結案';
@@ -192,10 +198,30 @@ const app = {
             if (app.state.quickFilter === 'overdue' && !isOverdue) return false;
             return true;
         });
+    },
 
-        if (app.state.viewMode === 'grid') app.renderGrid(filtered);
-        else if (app.state.viewMode === 'list') app.renderList(filtered);
-        else if (app.state.viewMode === 'calendar') app.renderCalendar(filtered);
+    exportToCSV: () => {
+        const cases = app.getFilteredCases();
+        if(!cases.length) return alert("沒有資料可匯出");
+
+        const headers = ["查核日期", "查核地點(工程簡稱)", "完成日期(結案日期)", "查核人員"];
+        const rows = cases.map(c => [
+            c['查核日期'] || '',
+            c['工程簡稱'] || '',
+            c['結案日期'] || '進行中',
+            c['查核人員'] || ''
+        ]);
+
+        const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+        const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `工安查核清單匯出_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     },
 
     /** 1. 卡片視圖 */

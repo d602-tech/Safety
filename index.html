@@ -106,6 +106,8 @@
                     <button id="viewListBtn" class="switch-btn" onclick="app.toggleViewMode('list')"><i class="fas fa-list"></i></button>
                     <button id="viewCalBtn" class="switch-btn" onclick="app.toggleViewMode('calendar')"><i class="fas fa-calendar-alt"></i></button>
                 </div>
+                <!-- 匯出案件 -->
+                <button class="btn btn-outline" style="border-radius:20px; font-size:0.85rem;" onclick="app.exportToCSV()"><i class="fas fa-file-export"></i> 匯出清單</button>
             </div>
             <div class="actions">
                 <button id="btnDefList" class="btn btn-outline" onclick="app.toggleView('deficiencies')"><i class="fas fa-tasks"></i> 缺失清單</button>
