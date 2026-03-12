@@ -1,7 +1,7 @@
 /**
  * 負責與 GAS 後端溝通的 API 模組
  */
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzUoQVnY9eLJSKCCVCjg259y9uJuTC4tLMh6n0-ldWDa0RQUpC5YusYAm5hVjxB5_GY/exec'; // ⚠️ 請替換為您 GAS 部署的 Web App URL
+const GAS_URL = window.ENV && window.ENV.GAS_URL ? window.ENV.GAS_URL : 'https://script.google.com/macros/s/AKfycbzUoQVnY9eLJSKCCVCjg259y9uJuTC4tLMh6n0-ldWDa0RQUpC5YusYAm5hVjxB5_GY/exec';
 
 let _authToken = null; // 存放 Google 登入後核發的 JWT ID Token
 

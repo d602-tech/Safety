@@ -2,8 +2,8 @@
  * 前端核心邏輯與狀態管理
  */
 
-// ⚠️ 替換為你在 Google Cloud 申請的 OAuth Client ID
-const GOOGLE_CLIENT_ID = "791038911460-8tfq97vhrvr4iaq5r3s1ti1abfpuddd9.apps.googleusercontent.com";
+// ⚠️ 從環境變數讀取 (GitHub Actions 注入)，或是 fallback 回本地開發用的設定
+const GOOGLE_CLIENT_ID = window.ENV && window.ENV.GOOGLE_CLIENT_ID ? window.ENV.GOOGLE_CLIENT_ID : "791038911460-8tfq97vhrvr4iaq5r3s1ti1abfpuddd9.apps.googleusercontent.com";
 
 const app = {
     state: {

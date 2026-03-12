@@ -1,0 +1,49 @@
+name: Deploy static content to Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+# 授予 GITHUB_TOKEN 發佈到 GitHub Pages 的權限
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate config.js dynamically
+        run: |
+          # 進入前端目錄建立 config.js
+          touch js/config.js
+          echo "window.ENV = {" >> js/config.js
+          echo "  GAS_URL: '${{ secrets.GAS_URL }}'," >> js/config.js
+          echo "  GOOGLE_CLIENT_ID: '${{ vars.GOOGLE_CLIENT_ID }}'" >> js/config.js
+          echo "};" >> js/config.js
+        working-directory: ./
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # 將整包資料夾作為 artifact 上傳部署
+          path: './'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
