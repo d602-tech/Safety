@@ -3,18 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>工安查核管理系統 v5.0 (GitHub Pages)</title>
+    <title>工安查核管理系統 v5.2 (GitHub Pages)</title>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
     <!-- Google Identity Services -->
-    <script src="https://accounts.google.com/gsi/client" async d    <!-- 引入 FontAwesome 圖標 -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- 引入 FontAwesome 圖標 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <header class="top-nav">
         <div class="logo"><i class="fas fa-shield-alt"></i> 工安查核管理系統 <span>v5.2</span></div>
         <div class="nav-actions">
+            <!-- 主題切換 -->
             <select id="themeSelector" class="theme-selector" onchange="app.setTheme(this.value)">
                 <option value="dark">🌑 暗色模式</option>
                 <option value="light">☀️ 亮色模式</option>
@@ -89,10 +91,10 @@
         <!-- 3. 控制區塊：篩選與視圖切換 -->
         <section class="controls">
             <div class="filter-group">
-                <select id="filterDepartment" onchange="app.renderTable()">
+                <select id="filterDepartment" onchange="app.renderView()">
                     <option value="">全部部門</option>
                 </select>
-                <select id="filterStatus" onchange="app.renderTable()">
+                <select id="filterStatus" onchange="app.renderView()">
                     <option value="">全部狀態</option>
                     <option value="第1階段-已登錄">第1階段</option>
                     <option value="第2階段-改善單已上傳">第2階段</option>
@@ -138,25 +140,6 @@
                         </tr>
                     </thead>
                     <tbody id="caseListBody"></tbody>
-                </table>
-            </div>
-
-            <!-- 權限管理視圖 -->
-            <div id="viewUsers" class="card-table-wrapper hidden">
-                  <thead>
-                        <tr>
-                            <th>工程簡稱</th>
-                            <th>承攬商</th>
-                            <th>主辦部門</th>
-                            <th>查核日期</th>
-                            <th>最晚核章日</th>
-                            <th>辦理狀態</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody id="caseListBody">
-                        <tr><td colspan="7" style="text-align:center;">請先完成 Google 登入</td></tr>
-                    </tbody>
                 </table>
             </div>
 
