@@ -603,17 +603,25 @@ const app = {
         const isDeptOwner = (app.state.user.role === 'DepartmentUploader' && c['主辦部門'] === app.state.user.department);
         const isAdmin = app.state.user.role === 'Admin';
 
-        if (c['辦理狀態'] === '第1階段-已登錄' && isSafety) {
-            content += app.getUploadSection(id, 'stage2', '🔴 上傳原始改善單');
-        } else if (c['辦理狀態'] === '第2階段-改善單已上傳' && (isSafety || isDeptOwner)) {
-            if (isDeptOwner) {
-                content += `<div style="margin-bottom:15px; padding:12px; background:rgba(16,185,129,0.1); border-radius:10px; font-size:0.85rem; color:var(--success);">
-                    <i class="fas fa-info-circle"></i> 您可以先點擊下方「歷史紀錄」下載原始改善單，核章後再於此處上傳。
-                </div>`;
+        if (isAdmin) {
+            // 管理者顯示全階段上傳 (顏色管理)
+            content += app.getUploadSection(id, 'stage2', '🔴 補傳/更換第2階段：原始改善單', 'var(--warning)');
+            content += app.getUploadSection(id, 'stage3', '🟡 補傳/更換第3階段：工作隊核章版', 'var(--info)');
+            content += app.getUploadSection(id, 'stage4', '🟢 補傳/更換第4階段：結案完成版', 'var(--success)');
+        } else {
+            // 一般使用者依流程顯示
+            if (c['辦理狀態'] === '第1階段-已登錄' && isSafety) {
+                content += app.getUploadSection(id, 'stage2', '🔴 上傳原始改善單', 'var(--warning)');
+            } else if (c['辦理狀態'] === '第2階段-改善單已上傳' && (isSafety || isDeptOwner)) {
+                if (isDeptOwner) {
+                    content += `<div style="margin-bottom:15px; padding:12px; background:rgba(16,185,129,0.1); border-radius:10px; font-size:0.85rem; color:var(--success);">
+                        <i class="fas fa-info-circle"></i> 您可以先點擊下方「查看完整歷史紀錄」下載原始改善單，核章後再於此處上傳。
+                    </div>`;
+                }
+                content += app.getUploadSection(id, 'stage3', '🟡 上傳工作隊核章版', 'var(--info)');
+            } else if (c['辦理狀態'] === '第3階段-工作隊版已處理' && isSafety) {
+                content += app.getUploadSection(id, 'stage4', '🟢 上傳結案完成版', 'var(--success)');
             }
-            content += app.getUploadSection(id, 'stage3', '🟡 上傳工作隊核章版');
-        } else if (c['辦理狀態'] === '第3階段-工作隊版已處理' && isSafety) {
-            content += app.getUploadSection(id, 'stage4', '🟢 上傳結案完成版');
         }
 
         // 管理者專用區：直接列出所有已上傳檔案
@@ -633,11 +641,11 @@ const app = {
         
         app.openModal(`案件管理: ${c['工程簡稱']}`, content);
     },
-    getUploadSection: (id, stage, label) => `
-        <div style="background:var(--bg-card); padding:16px; border-radius:12px; border:1px solid var(--border);">
-            <p style="margin-top:0; font-weight:800;">${label}</p>
-            <input type="file" id="file_${stage}" style="margin-bottom:12px; color:var(--text-main);" />
-            <button class="btn btn-primary" style="width:100%; justify-content:center;" onclick="app.submitFile('${id}', '${stage}')">確認上傳</button>
+    getUploadSection: (id, stage, label, color) => `
+        <div style="background:var(--bg-card); padding:16px; border-radius:12px; border:2px solid ${color || 'var(--border)'}; margin-bottom:16px;">
+            <p style="margin-top:0; font-weight:800; color:${color || 'inherit'}">${label}</p>
+            <input type="file" id="file_${stage}" style="margin-bottom:12px; color:var(--text-main); width:100%;" />
+            <button class="btn" style="width:100%; justify-content:center; background:${color || 'var(--primary)'}; color:white;" onclick="app.submitFile('${id}', '${stage}')">確認上傳</button>
         </div>
     `,
     submitFile: async (id, stage) => {

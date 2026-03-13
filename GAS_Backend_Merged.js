@@ -373,20 +373,30 @@ function uploadInspectionFile(fileInfo, caseId, stage, modifier) {
     const fileUrl = targetFolder.createFile(blob).getUrl();
 
     var newStatus = '';
-    // 若 stage == 'report'，不改變當前狀態 (補充完成報告)
+    const currentStatus = auditData['辦理狀態'];
+    const statusPriority = {
+        '未登錄': 0,
+        '第1階段-已登錄': 1,
+        '第2階段-改善單已上傳': 2,
+        '第3階段-工作隊版已處理': 3,
+        '第4階段-已結案': 4
+    };
+
+    // 決定新狀態
     if (stage === 'stage2') newStatus = STATUS.STAGE2;
     else if (stage === 'stage3') newStatus = STATUS.STAGE3;
     else if (stage === 'stage4') {
       newStatus = STATUS.STAGE4;
       var closeDateCol = headers.indexOf('結案日期');
-      if (closeDateCol > -1) sheet.getRange(rowIdx, closeDateCol + 1).setValue(new Date());
+      if (closeDateCol > -1) sheet.getRange(rowIdx, closeDateCol + 1).setValue(newDate());
     }
 
-    if(newStatus !== '') {
+    // 更新狀態規則：僅在「新階級 > 目前階級」時才覆蓋狀態
+    if(newStatus !== '' && (statusPriority[newStatus] > (statusPriority[currentStatus] || 0))) {
         sheet.getRange(rowIdx, headers.indexOf('辦理狀態') + 1).setValue(newStatus);
     }
     
-    // 將連結存回主清單對應欄位
+    // 將連結存回主清單對應欄位 (不論狀態，只要上傳就更新連結)
     let urlColNum = -1;
     if (stage === 'stage2') urlColNum = headers.indexOf('第2階段連結') + 1;
     else if (stage === 'stage3') urlColNum = headers.indexOf('第3階段連結') + 1;
