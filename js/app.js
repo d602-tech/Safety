@@ -224,6 +224,21 @@ const app = {
         document.body.removeChild(link);
     },
 
+    downloadExample: () => {
+        const headers = ["工程簡稱", "查核日期", "承攬商", "主辦部門", "查核地點", "查核人員", "缺失描述", "改善期限"];
+        const exampleRow = ["範例工程", new Date().toISOString().split('T')[0], "範例承攬商", "工安課", "工地現場", "管理員", "範例缺失內容", new Date().toISOString().split('T')[0]];
+        const csvContent = [headers, exampleRow].map(e => e.join(",")).join("\n");
+        const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", "工安查核範例.csv");
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    },
+
     /** 1. 卡片視圖 */
     renderGrid: (cases) => {
         const container = document.getElementById('viewCasesGrid');
@@ -461,7 +476,7 @@ const app = {
         } catch(e) { alert(e.message); }
     },
     openNewCaseModal: () => {
-        let options = app.state.projects.map(p => `<option value="${p.abbr}">${p.abbr} - ${p.contractor}</option>`).join('');
+        let options = app.state.projects.map(p => `<option value="${p.abbr}">${p.serial} - ${p.abbr} - ${p.name}</option>`).join('');
         app.openModal('登錄查核案件', `<div style="display:flex;flex-direction:column;gap:15px;"><div>工程：<select id="newProj" style="width:100%">${options}</select></div><div>日期：<input type="date" id="newDate" value="${new Date().toISOString().split('T')[0]}"></div><button class="btn btn-primary" onclick="app.submitNewCase()">確認登錄</button></div>`);
     },
     submitNewCase: async () => {
