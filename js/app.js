@@ -596,6 +596,7 @@ const app = {
         } finally {
             app.setModalLoading(false);
         }
+    },
     triggerManualRemind: async () => {
         const btn = document.getElementById('btnRemind');
         if (btn) btn.disabled = true;
@@ -608,6 +609,7 @@ const app = {
         } finally {
             if (btn) btn.disabled = false;
         }
-    },
+    }
+};
 
 window.onload = () => app.initAuth();
