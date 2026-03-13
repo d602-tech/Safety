@@ -116,10 +116,12 @@ const app = {
     applyRoleRestrictions: () => {
         const btnNew = document.getElementById('btnNewCase');
         const btnRemind = document.getElementById('btnRemind');
+        const btnProjMgmt = document.getElementById('btnProjMgmt');
         const btnAdminUsers = document.getElementById('btnAdminUsers');
         
         if (btnNew) btnNew.classList.add('hidden');
         if (btnRemind) btnRemind.classList.add('hidden');
+        if (btnProjMgmt) btnProjMgmt.classList.add('hidden');
         if (btnAdminUsers) btnAdminUsers.classList.add('hidden');
 
         if (!app.state.user) return;
@@ -129,6 +131,7 @@ const app = {
         }
         if (app.state.user.role === 'Admin') {
             if (btnRemind) btnRemind.classList.remove('hidden');
+            if (btnProjMgmt) btnProjMgmt.classList.remove('hidden');
             if (btnAdminUsers) btnAdminUsers.classList.remove('hidden');
         }
     },
@@ -287,6 +290,7 @@ const app = {
             const todayStr = new Date().toISOString().split('T')[0];
             const isClosed = c['辦理狀態'] === '第4階段-已結案';
             const isOverdue = !isClosed && (c['最晚應核章日期'] < todayStr);
+            const isAdmin = app.state.user && app.state.user.role === 'Admin';
             const card = document.createElement('div');
             card.className = 'case-card';
             card.innerHTML = `
@@ -304,6 +308,7 @@ const app = {
                     <button class="btn btn-primary" onclick="app.openManage('${c.id}')">管理</button>
                     <button class="btn btn-outline" onclick="app.openAddDefModal('${c.id}', '${c['工程簡稱']}', '${c['主辦部門']}')"><i class="fas fa-plus"></i> 缺失</button>
                     <button class="btn btn-outline" onclick="app.viewHistory('${c.id}')"><i class="fas fa-history"></i></button>
+                    ${isAdmin ? `<button class="btn btn-outline" style="color:var(--warning); border-color:var(--warning);" onclick="app.deleteCase('${c.id}')"><i class="fas fa-trash"></i></button>` : ''}
                 </div>
             `;
             container.appendChild(card);
@@ -314,6 +319,7 @@ const app = {
     renderList: (cases) => {
         const tbody = document.getElementById('caseListBody');
         if (!tbody) return;
+        const isAdmin = app.state.user && app.state.user.role === 'Admin';
         tbody.innerHTML = cases.length ? '' : `<tr><td colspan="7" style="text-align:center; padding:40px;">☕ 尚無案件</td></tr>`;
         cases.forEach(c => {
             const tr = document.createElement('tr');
@@ -324,7 +330,12 @@ const app = {
                 <td>${c['查核日期']}</td>
                 <td>${c['最晚應核章日期']}</td>
                 <td><span class="badge ${c['辦理狀態'] === '第4階段-已結案' ? 'success' : 'badge-status'}">${c['辦理狀態']}</span></td>
-                <td><button class="btn btn-outline" onclick="app.openManage('${c.id}')">管理</button></td>
+                <td>
+                    <div style="display:flex; gap:5px;">
+                        <button class="btn btn-outline" onclick="app.openManage('${c.id}')">管理</button>
+                        ${isAdmin ? `<button class="btn btn-outline" style="color:var(--warning); border-color:var(--warning); padding:8px 12px;" onclick="app.deleteCase('${c.id}')"><i class="fas fa-trash"></i></button>` : ''}
+                    </div>
+                </td>
             `;
             tbody.appendChild(tr);
         });
@@ -375,6 +386,7 @@ const app = {
     renderDeficiencies: () => {
         const tbody = document.getElementById('defListBody');
         if (!tbody) return;
+        const isAdmin = app.state.user && app.state.user.role === 'Admin';
         tbody.innerHTML = app.state.deficiencies.length ? '' : `<tr><td colspan="6" style="text-align:center;">尚無缺失紀錄</td></tr>`;
         app.state.deficiencies.forEach(d => {
             tbody.innerHTML += `
@@ -384,7 +396,12 @@ const app = {
                     <td>${d.department}</td>
                     <td>${d.deadline}</td>
                     <td><span class="badge ${d.status==='已改善'?'success':'warning'}">${d.status}</span></td>
-                    <td><button class="btn btn-outline" onclick="app.openEditDef('${d.id}')">編輯</button></td>
+                    <td>
+                        <div style="display:flex; gap:5px;">
+                            <button class="btn btn-outline" onclick="app.openEditDef('${d.id}')">編輯</button>
+                            ${isAdmin ? `<button class="btn btn-outline" style="color:var(--warning); border-color:var(--warning); padding:8px 12px;" onclick="app.deleteDeficiency('${d.id}')"><i class="fas fa-trash"></i></button>` : ''}
+                        </div>
+                    </td>
                 </tr>
             `;
         });
@@ -425,6 +442,7 @@ const app = {
     renderProjects: () => {
         const tbody = document.getElementById('projListBody');
         if (!tbody) return;
+        const isAdmin = app.state.user && app.state.user.role === 'Admin';
         tbody.innerHTML = app.state.projects.length ? '' : `<tr><td colspan="6" style="text-align:center;">尚無工程項目</td></tr>`;
         app.state.projects.forEach(p => {
             tbody.innerHTML += `
@@ -434,7 +452,7 @@ const app = {
                     <td>${p.name}</td>
                     <td>${p.contractor}</td>
                     <td>${p.department}</td>
-                    <td><button class="btn btn-outline" onclick="app.deleteProject('${p.serial}')"><i class="fas fa-trash"></i></button></td>
+                    <td>${isAdmin ? `<button class="btn btn-outline" style="color:var(--warning); border-color:var(--warning);" onclick="app.deleteProject('${p.serial}')"><i class="fas fa-trash"></i></button>` : ''}</td>
                 </tr>
             `;
         });
@@ -597,6 +615,31 @@ const app = {
             app.setModalLoading(false);
         }
     },
+
+    deleteCase: async (id) => {
+        if (!confirm("確定要刪除此案件？此操作不可恢復！")) return;
+        try {
+            const res = await api.deleteCase(id);
+            app.state.cases = res.records;
+            app.updateStats();
+            app.renderView();
+            app.showToast("案件已刪除");
+        } catch (e) {
+            app.showToast(e.message, "error");
+        }
+    },
+
+    deleteDeficiency: async (id) => {
+        if (!confirm("確定要刪除此缺失紀錄？")) return;
+        try {
+            await api.deleteDeficiency(id);
+            app.fetchDeficiencies();
+            app.showToast("缺失紀錄已刪除");
+        } catch (e) {
+            app.showToast(e.message, "error");
+        }
+    },
+
     triggerManualRemind: async () => {
         const btn = document.getElementById('btnRemind');
         if (btn) btn.disabled = true;

@@ -47,6 +47,9 @@ const api = {
 
     // 2. 登錄新案件
     createCase: (data) => api.request('create_case', data),
+    
+    // 刪除案件
+    deleteCase: (id) => api.request('delete_case', { id }),
 
     // 3. 上傳檔案 (支援 base64)
     uploadFile: (caseId, stage, fileBase64, fileName, modifierName) =>
@@ -71,5 +74,6 @@ const api = {
     
     // 缺失清單
     getDeficiencies: () => api.request('get_deficiencies'),
-    updateDeficiency: (p) => api.request('update_deficiency', p)
+    updateDeficiency: (p) => api.request('update_deficiency', p),
+    deleteDeficiency: (id) => api.request('delete_deficiency', { id })
 };
