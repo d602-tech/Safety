@@ -563,9 +563,25 @@ const app = {
         if (!c) return;
         let content = `<div style="margin-bottom:20px; padding:15px; background:rgba(0,120,255,0.05); border-radius:12px; font-weight:700;">狀態：${c['辦理狀態']}</div>`;
         const isSafety = (app.state.user.role === 'Admin' || app.state.user.role === 'SafetyUploader');
-        if (c['辦理狀態'] === '第1階段-已登錄' && isSafety) content += app.getUploadSection(id, 'stage2', '🔴 上傳原始改善單');
-        else if (c['辦理狀態'] === '第2階段-改善單已上傳' && isSafety) content += app.getUploadSection(id, 'stage3', '🟡 上傳工作隊核章版');
-        else if (c['辦理狀態'] === '第3階段-工作隊版已處理' && isSafety) content += app.getUploadSection(id, 'stage4', '🟢 上傳結案完成版');
+        const isDeptOwner = (app.state.user.role === 'DepartmentUploader' && c['主辦部門'] === app.state.user.department);
+
+        if (c['辦理狀態'] === '第1階段-已登錄' && isSafety) {
+            content += app.getUploadSection(id, 'stage2', '🔴 上傳原始改善單');
+        } else if (c['辦理狀態'] === '第2階段-改善單已上傳' && (isSafety || isDeptOwner)) {
+            // 部門人員在第2階段後可下載第2階段檔案並上傳第3階段
+            if (isDeptOwner) {
+                content += `<div style="margin-bottom:15px; padding:12px; background:rgba(16,185,129,0.1); border-radius:10px; font-size:0.85rem; color:var(--success);">
+                    <i class="fas fa-info-circle"></i> 您可以先點擊下方「歷史紀錄」下載原始改善單，核章後再於此處上傳。
+                </div>`;
+            }
+            content += app.getUploadSection(id, 'stage3', '🟡 上傳工作隊核章版');
+        } else if (c['辦理狀態'] === '第3階段-工作隊版已處理' && isSafety) {
+            content += app.getUploadSection(id, 'stage4', '🟢 上傳結案完成版');
+        }
+        
+        // 所有具備查看權限者皆可看歷史紀錄 (含下載連結)
+        content += `<button class="btn btn-outline" style="width:100%; margin-top:15px;" onclick="app.viewHistory('${id}')"><i class="fas fa-history"></i> 查看歷史與下載檔案</button>`;
+        
         app.openModal(`案件管理: ${c['工程簡稱']}`, content);
     },
     getUploadSection: (id, stage, label) => `

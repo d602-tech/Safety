@@ -84,7 +84,7 @@ function doPost(e) {
           { base64Data: payload.fileBase64, fileName: payload.fileName, mimeType: "application/pdf" }, 
           payload.caseId, 
           payload.stage, 
-          roleData.email // 強制覆寫修改者為真實登入帳號
+          roleData // 傳遞完整的角色資料進行驗證
         );
         break;
 
@@ -342,6 +342,22 @@ function uploadInspectionFile(fileInfo, caseId, stage, modifier) {
     const auditData = {};
     headers.forEach(function(h, i) { auditData[h] = rowData[i]; });
 
+    // 【權限驗證核心】
+    const userEmail = roleData.email;
+    const userRole = roleData.role;
+    const userDept = roleData.department;
+
+    if (userRole === 'DepartmentUploader') {
+        if (stage !== 'stage3') {
+            throw new Error("部門人員僅能上傳「工作隊核章版」(第3階段)。");
+        }
+        if (auditData['主辦部門'] !== userDept) {
+            throw new Error("您無權上傳非所屬部門的案件資料。");
+        }
+    } else if (userRole !== 'Admin' && userRole !== 'SafetyUploader') {
+        throw new Error("您的權限無法執行上傳操作。");
+    }
+
     const fileExtension = fileInfo.fileName.includes('.') ? '.' + fileInfo.fileName.split('.').pop() : '.pdf';
     const newFileName = generateFileName_(stage, auditData, fileExtension);
 
@@ -369,10 +385,10 @@ function uploadInspectionFile(fileInfo, caseId, stage, modifier) {
     if(newStatus !== '') {
         sheet.getRange(rowIdx, headers.indexOf('辦理狀態') + 1).setValue(newStatus);
     }
-    sheet.getRange(rowIdx, headers.indexOf('修改人員') + 1).setValue(modifier);
+    sheet.getRange(rowIdx, headers.indexOf('修改人員') + 1).setValue(userEmail);
     
     let stageDisplay = stage === 'report' ? '完成報告檔案' : '階段' + stage.replace(/\D/g, '') + '檔案';
-    logChange_(caseId, auditData['工程簡稱'], modifier, '檔案上傳', stageDisplay, newFileName, fileUrl);
+    logChange_(caseId, auditData['工程簡稱'], userEmail, '檔案上傳', stageDisplay, newFileName, fileUrl);
     
     return { success: true, message: '檔案 "' + newFileName + '" 上傳成功！', records: getAuditRecords_() };
   } catch (e) {
