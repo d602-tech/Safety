@@ -331,6 +331,12 @@ const app = {
                     <button class="btn btn-outline" onclick="app.viewHistory('${c.id}')"><i class="fas fa-history"></i></button>
                     ${isAdmin ? `<button class="btn btn-outline" style="color:var(--warning); border-color:var(--warning);" onclick="app.deleteCase('${c.id}')"><i class="fas fa-trash"></i></button>` : ''}
                 </div>
+                ${isAdmin ? `
+                <div style="padding: 10px 24px; border-top: 1px dashed var(--border); display: flex; gap: 15px; font-size: 0.8rem;">
+                    ${c['第2階段連結'] ? `<a href="${c['第2階段連結']}" target="_blank" title="下載第2階段" style="color:var(--warning);"><i class="fas fa-file-pdf"></i> S2</a>` : ''}
+                    ${c['第3階段連結'] ? `<a href="${c['第3階段連結']}" target="_blank" title="下載第3階段" style="color:var(--info);"><i class="fas fa-file-pdf"></i> S3</a>` : ''}
+                    ${c['第4階段連結'] ? `<a href="${c['第4階段連結']}" target="_blank" title="下載第4階段" style="color:var(--success);"><i class="fas fa-file-check"></i> S4</a>` : ''}
+                </div>` : ''}
             `;
             container.appendChild(card);
         });
@@ -564,11 +570,11 @@ const app = {
         let content = `<div style="margin-bottom:20px; padding:15px; background:rgba(0,120,255,0.05); border-radius:12px; font-weight:700;">狀態：${c['辦理狀態']}</div>`;
         const isSafety = (app.state.user.role === 'Admin' || app.state.user.role === 'SafetyUploader');
         const isDeptOwner = (app.state.user.role === 'DepartmentUploader' && c['主辦部門'] === app.state.user.department);
+        const isAdmin = app.state.user.role === 'Admin';
 
         if (c['辦理狀態'] === '第1階段-已登錄' && isSafety) {
             content += app.getUploadSection(id, 'stage2', '🔴 上傳原始改善單');
         } else if (c['辦理狀態'] === '第2階段-改善單已上傳' && (isSafety || isDeptOwner)) {
-            // 部門人員在第2階段後可下載第2階段檔案並上傳第3階段
             if (isDeptOwner) {
                 content += `<div style="margin-bottom:15px; padding:12px; background:rgba(16,185,129,0.1); border-radius:10px; font-size:0.85rem; color:var(--success);">
                     <i class="fas fa-info-circle"></i> 您可以先點擊下方「歷史紀錄」下載原始改善單，核章後再於此處上傳。
@@ -578,9 +584,21 @@ const app = {
         } else if (c['辦理狀態'] === '第3階段-工作隊版已處理' && isSafety) {
             content += app.getUploadSection(id, 'stage4', '🟢 上傳結案完成版');
         }
+
+        // 管理者專用區：直接列出所有已上傳檔案
+        if (isAdmin && (c['第2階段連結'] || c['第3階段連結'] || c['第4階段連結'])) {
+            content += `<div style="margin-top:20px; padding:15px; background:rgba(0,0,0,0.03); border-radius:12px; border:1px solid var(--border);">
+                <div style="font-weight:800; margin-bottom:10px;"><i class="fas fa-folder-open"></i> 快速下載所有階段檔案</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    ${c['第2階段連結'] ? `<a href="${c['第2階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.75rem;"><i class="fas fa-file-pdf"></i> 第2階段</a>` : ''}
+                    ${c['第3階段連結'] ? `<a href="${c['第3階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.75rem;"><i class="fas fa-file-pdf"></i> 第3階段</a>` : ''}
+                    ${c['第4階段連結'] ? `<a href="${c['第4階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.75rem;"><i class="fas fa-file-check"></i> 第4階段</a>` : ''}
+                </div>
+            </div>`;
+        }
         
         // 所有具備查看權限者皆可看歷史紀錄 (含下載連結)
-        content += `<button class="btn btn-outline" style="width:100%; margin-top:15px;" onclick="app.viewHistory('${id}')"><i class="fas fa-history"></i> 查看歷史與下載檔案</button>`;
+        content += `<button class="btn btn-outline" style="width:100%; margin-top:15px;" onclick="app.viewHistory('${id}')"><i class="fas fa-history"></i> 查看完整歷史紀錄</button>`;
         
         app.openModal(`案件管理: ${c['工程簡稱']}`, content);
     },

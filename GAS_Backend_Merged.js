@@ -385,6 +385,25 @@ function uploadInspectionFile(fileInfo, caseId, stage, modifier) {
     if(newStatus !== '') {
         sheet.getRange(rowIdx, headers.indexOf('辦理狀態') + 1).setValue(newStatus);
     }
+    
+    // 將連結存回主清單對應欄位
+    let urlColNum = -1;
+    if (stage === 'stage2') urlColNum = headers.indexOf('第2階段連結') + 1;
+    else if (stage === 'stage3') urlColNum = headers.indexOf('第3階段連結') + 1;
+    else if (stage === 'stage4') urlColNum = headers.indexOf('第4階段連結') + 1;
+    
+    if (urlColNum > 0) {
+        sheet.getRange(rowIdx, urlColNum).setValue(fileUrl);
+    } else {
+        // 若欄位不存在，則動態新增（通常發生在剛升級系統時）
+        const newHeader = stage === 'stage2' ? '第2階段連結' : (stage === 'stage3' ? '第3階段連結' : '第4階段連結');
+        const lastCol = sheet.getLastColumn();
+        sheet.getRange(1, lastCol + 1).setValue(newHeader);
+        sheet.getRange(rowIdx, lastCol + 1).setValue(fileUrl);
+        // 更新 headers 變數供後續 log 使用
+        headers.push(newHeader);
+    }
+
     sheet.getRange(rowIdx, headers.indexOf('修改人員') + 1).setValue(userEmail);
     
     let stageDisplay = stage === 'report' ? '完成報告檔案' : '階段' + stage.replace(/\D/g, '') + '檔案';
