@@ -15,7 +15,31 @@ const app = {
         viewMode: localStorage.getItem('viewMode') || 'grid', // grid, list, calendar
         quickFilter: 'all',
         theme: localStorage.getItem('theme') || 'light',
-        calDate: new Date()
+        calDate: new Date(),
+        searchKeyword: ''
+    },
+
+    /** ======================== 全域通知與顯示 ======================== */
+    showToast: (msg, type = 'success') => {
+        const container = document.getElementById('toastContainer');
+        if (!container) return;
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> <span>${msg}</span>`;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.classList.add('toast-out');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    },
+
+    previewImage: (url) => {
+        const lb = document.getElementById('lightbox');
+        const img = document.getElementById('lightboxImg');
+        if (lb && img) {
+            img.src = url;
+            lb.classList.remove('hidden');
+        }
     },
 
     /** ======================== 初始化與身分驗證 ======================== */
@@ -60,8 +84,9 @@ const app = {
             
             if (app.state.user.role === 'Admin') app.fetchUsers();
             app.fetchDeficiencies();
+            app.showToast("登入成功");
         } catch (e) {
-            alert("登入失敗或您的帳號未啟用權限：\n" + e.message);
+            app.showToast("登入失敗或帳號未啟用", "error");
             app.logout();
         } finally {
             app.showLoading(false);
@@ -185,11 +210,18 @@ const app = {
     getFilteredCases: () => {
         const deptFilter = document.getElementById('filterDepartment')?.value || '';
         const statusFilter = document.getElementById('filterStatus')?.value || '';
+        const keyword = document.getElementById('keywordSearch')?.value.toLowerCase().trim() || '';
         const todayStr = new Date().toISOString().split('T')[0];
 
         return app.state.cases.filter(c => {
             if (deptFilter && c['主辦部門'] !== deptFilter) return false;
             if (statusFilter && c['辦理狀態'] !== statusFilter) return false;
+            
+            if (keyword) {
+                const searchStr = `${c['工程簡稱']} ${c['承攬商']} ${c['查核人員']} ${c['案件ID']}`.toLowerCase();
+                if (!searchStr.includes(keyword)) return false;
+            }
+
             const isClosed = c['辦理狀態'] === '第4階段-已結案';
             const isOverdue = !isClosed && (c['最晚應核章日期'] < todayStr);
 
@@ -202,7 +234,7 @@ const app = {
 
     exportToCSV: () => {
         const cases = app.getFilteredCases();
-        if(!cases.length) return alert("沒有資料可匯出");
+        if(!cases.length) return app.showToast("沒有資料可匯出", "error");
 
         const headers = ["查核日期", "查核地點(工程簡稱)", "完成日期(結案日期)", "查核人員"];
         const rows = cases.map(c => [
@@ -362,8 +394,14 @@ const app = {
         `);
     },
     submitDeficiency: async (caseId, abbr) => {
-        const p = { caseId, abbr, content: document.getElementById('defContent').value, deadline: document.getElementById('defDeadline').value, department: document.getElementById('defDept').value, status: '待改善' };
-        try { await api.updateDeficiency(p); app.fetchDeficiencies(); app.closeModal(); alert("✅ 已新增缺失"); } catch(e) { alert(e.message); }
+        const content = document.getElementById('defContent').value.trim();
+        const deadline = document.getElementById('defDeadline').value;
+        const department = document.getElementById('defDept').value.trim();
+
+        if (!content || !deadline || !department) return app.showToast("請填寫所有欄位", "error");
+
+        const p = { caseId, abbr, content, deadline, department, status: '待改善' };
+        try { await api.updateDeficiency(p); app.fetchDeficiencies(); app.closeModal(); app.showToast("✅ 已新增缺失"); } catch(e) { app.showToast(e.message, "error"); }
     },
 
     /** 5. 工程管理 */
@@ -396,12 +434,19 @@ const app = {
         `);
     },
     submitNewProject: async () => {
-        const p = { abbr: document.getElementById('pAbbr').value, name: document.getElementById('pName').value, contractor: document.getElementById('pContractor').value, department: document.getElementById('pDept').value };
-        try { const res = await api.addProject(p); app.state.projects = res.projects; app.renderProjects(); app.closeModal(); } catch(e){ alert(e.message); }
+        const abbr = document.getElementById('pAbbr').value.trim();
+        const name = document.getElementById('pName').value.trim();
+        const contractor = document.getElementById('pContractor').value.trim();
+        const department = document.getElementById('pDept').value.trim();
+
+        if (!abbr || !name || !contractor || !department) return app.showToast("請填寫完整資訊", "error");
+
+        const p = { abbr, name, contractor, department };
+        try { const res = await api.addProject(p); app.state.projects = res.projects; app.renderProjects(); app.closeModal(); app.showToast("工程新增成功"); } catch(e){ app.showToast(e.message, "error"); }
     },
     deleteProject: async (serial) => {
        if(!confirm("確定要刪除此工程項目？")) return;
-       try { const res = await api.deleteProject(serial); app.state.projects = res.projects; app.renderProjects(); } catch(e){ alert(e.message); }
+       try { const res = await api.deleteProject(serial); app.state.projects = res.projects; app.renderProjects(); app.showToast("已刪除"); } catch(e){ app.showToast(e.message, "error"); }
     },
 
     /** 獲取使用者權限清單 */
@@ -453,7 +498,7 @@ const app = {
     `,
     submitFile: async (id, stage) => {
         const input = document.getElementById(`file_${stage}`);
-        if(!input.files.length) return alert("請先選擇檔案");
+        if(!input.files.length) return app.showToast("請先選擇檔案", "error");
         const file = input.files[0];
         try {
             const base64 = await app.fileToBase64(file);
@@ -461,8 +506,8 @@ const app = {
             const res = await api.init();
             app.state.cases = res.data.cases;
             app.updateStats(); app.renderView(); app.closeModal();
-            alert("✅ 上傳成功");
-        } catch(e) { alert(e.message); }
+            app.showToast("✅ 上傳成功");
+        } catch(e) { app.showToast(e.message, "error"); }
     },
     fileToBase64: (file) => new Promise((resolve) => {
         const reader = new FileReader(); reader.readAsDataURL(file);
@@ -471,18 +516,32 @@ const app = {
     viewHistory: async (id) => {
         try {
             const res = await api.getHistory(id);
-            let html = res.data.map(r => `<div style="margin-bottom:12px; padding:12px; background:var(--bg-card); border-radius:10px; border:1px solid var(--border); font-size:0.8rem;"><div style="color:var(--text-muted);">${r.timestamp}</div><div style="font-weight:700;">${r.description}</div><a href="${r.fileUrl}" target="_blank" style="color:var(--primary);">📎 下載</a></div>`).join('') || '<p>尚無紀錄</p>';
+            let html = res.data.map(r => {
+                const isImg = /\.(jpg|jpeg|png|gif|webp)$/i.test(r.fileUrl) || /\.(jpg|jpeg|png|gif|webp)$/i.test(r.fileName);
+                return `
+                <div style="margin-bottom:12px; padding:12px; background:var(--bg-card); border-radius:10px; border:1px solid var(--border); font-size:0.8rem;">
+                    <div style="color:var(--text-muted);">${r.timestamp}</div>
+                    <div style="font-weight:700;">${r.description}</div>
+                    <div style="margin-top:8px; display:flex; gap:10px;">
+                        <a href="${r.fileUrl}" target="_blank" style="color:var(--primary); text-decoration:none;"><i class="fas fa-download"></i> 下載</a>
+                        ${isImg ? `<a href="javascript:void(0)" onclick="app.previewImage('${r.fileUrl}')" style="color:var(--success); text-decoration:none;"><i class="fas fa-eye"></i> 預覽</a>` : ''}
+                    </div>
+                </div>`;
+            }).join('') || '<p>尚無紀錄</p>';
             app.openModal('歷史紀錄', html);
-        } catch(e) { alert(e.message); }
+        } catch(e) { app.showToast(e.message, "error"); }
     },
     openNewCaseModal: () => {
         let options = app.state.projects.map(p => `<option value="${p.abbr}">${p.serial} - ${p.abbr} - ${p.name}</option>`).join('');
         app.openModal('登錄查核案件', `<div style="display:flex;flex-direction:column;gap:15px;"><div>工程：<select id="newProj" style="width:100%">${options}</select></div><div>日期：<input type="date" id="newDate" value="${new Date().toISOString().split('T')[0]}"></div><button class="btn btn-primary" onclick="app.submitNewCase()">確認登錄</button></div>`);
     },
     submitNewCase: async () => {
-        const pAbbr = document.getElementById('newProj').value; const date = document.getElementById('newDate').value;
+        const pAbbr = document.getElementById('newProj').value; 
+        const date = document.getElementById('newDate').value;
+        if (!pAbbr || !date) return app.showToast("工程與日期為必填", "error");
+        
         const pInfo = app.state.projects.find(p => p.abbr === pAbbr);
-        try { const res = await api.createCase({ ...pInfo, auditDate: date }); app.state.cases = res.records; app.updateStats(); app.renderView(); app.closeModal(); alert("✅ 成功"); } catch(e) { alert(e.message); }
+        try { const res = await api.createCase({ ...pInfo, auditDate: date }); app.state.cases = res.records; app.updateStats(); app.renderView(); app.closeModal(); app.showToast("✅ 案件登錄成功"); } catch(e) { app.showToast(e.message, "error"); }
     }
 };
 

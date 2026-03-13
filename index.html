@@ -112,6 +112,10 @@
                 <!-- 匯出案件 -->
                 <button class="btn btn-outline" style="border-radius:20px; font-size:0.85rem;" onclick="app.exportToCSV()"><i class="fas fa-file-export"></i> 匯出清單</button>
                 <button class="btn btn-outline" style="border-radius:20px; font-size:0.85rem;" onclick="app.downloadExample()"><i class="fas fa-download"></i> 下載範例</button>
+                <div style="position:relative; display:flex; align-items:center;">
+                    <i class="fas fa-search" style="position:absolute; left:12px; color:var(--text-muted); font-size:0.8rem;"></i>
+                    <input type="text" id="keywordSearch" placeholder="搜尋工程、承攬商..." style="padding-left:32px; height:36px; font-size:0.85rem; width:200px;" oninput="app.renderView()">
+                </div>
             </div>
             <div class="actions">
                 <button id="btnDefList" class="btn btn-outline" onclick="app.toggleView('deficiencies')"><i class="fas fa-tasks"></i> 缺失清單</button>
@@ -225,6 +229,14 @@
                 <div class="loading-spinner">處理中，請稍候...</div>
             </div>
         </div>
+    </div>
+
+    <!-- Toast 通知容器 -->
+    <div id="toastContainer" style="position:fixed; top:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:10px;"></div>
+
+    <!-- 圖片預覽 Lightbox -->
+    <div id="lightbox" class="modal-overlay hidden" onclick="this.classList.add('hidden')">
+        <img id="lightboxImg" style="max-width:90%; max-height:90%; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,0.5);">
     </div>
 
     <script src="js/config.js"></script>
