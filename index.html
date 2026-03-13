@@ -201,6 +201,14 @@
 
             <!-- 管理者使用者清單視圖 (預設隱藏) -->
             <div id="viewUsers" class="card-table-wrapper hidden">
+                <div class="permission-guide" style="padding:15px; margin:15px; background:rgba(99,102,241,0.05); border:1px dashed var(--primary); border-radius:12px; font-size:0.85rem;">
+                    <h4 style="margin-top:0; color:var(--primary);"><i class="fas fa-info-circle"></i> 權限說明</h4>
+                    <ul style="margin:5px 0 0 20px; padding:0; display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:10px;">
+                        <li><strong>Admin</strong>: 全功能存取（含權限、工程管理、稽催）。</li>
+                        <li><strong>SafetyUploader</strong>: 登錄案件、各階段檔案上傳、缺失管理。</li>
+                        <li><strong>DepartmentUploader</strong>: 僅能查看及下載所屬部門之案件。</li>
+                    </ul>
+                </div>
                 <table class="case-table">
                     <thead>
                         <tr>

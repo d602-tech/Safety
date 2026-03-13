@@ -511,8 +511,9 @@ const app = {
     renderUsers: () => {
         const tbody = document.getElementById('userListBody');
         if (!tbody) return;
-        tbody.innerHTML = app.state.users.length ? '' : `<tr><td colspan="5" style="text-align:center; padding:20px;">載入中...</td></tr>`;
-        app.state.users.forEach(u => {
+        const validUsers = app.state.users.filter(u => u.email && u.email.trim() !== '');
+        tbody.innerHTML = validUsers.length ? '' : `<tr><td colspan="5" style="text-align:center; padding:20px;">尚無權限資料</td></tr>`;
+        validUsers.forEach(u => {
             tbody.innerHTML += `<tr><td>${u.name}</td><td>${u.email}</td><td><span class="badge badge-status">${u.role}</span></td><td>${u.department}</td><td>${u.active ? '🟢' : '🔴'}</td></tr>`;
         });
     },
