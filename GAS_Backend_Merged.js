@@ -372,31 +372,26 @@ function uploadInspectionFile(fileInfo, caseId, stage, modifier) {
     const blob = Utilities.newBlob(Utilities.base64Decode(fileInfo.base64Data), fileInfo.mimeType, newFileName);
     const fileUrl = targetFolder.createFile(blob).getUrl();
 
-    var newStatus = '';
-    const currentStatus = auditData['辦理狀態'];
-    const statusPriority = {
-        '未登錄': 0,
-        '第1階段-已登錄': 1,
-        '第2階段-改善單已上傳': 2,
-        '第3階段-工作隊版已處理': 3,
-        '第4階段-已結案': 4
-    };
+    const currentStatus = auditData['辦理狀態'] || '';
 
-    // 決定新狀態
-    if (stage === 'stage2') newStatus = STATUS.STAGE2;
-    else if (stage === 'stage3') newStatus = STATUS.STAGE3;
+    // 【智慧狀態更新】僅在狀態「前進」時更新
+    let newStatus = '';
+    const statusOrder = [STATUS.STAGE1, STATUS.STAGE2, STATUS.STAGE3, STATUS.STAGE4];
+    const currentIndex = statusOrder.indexOf(currentStatus);
+
+    if (stage === 'stage2' && currentIndex < 1) newStatus = STATUS.STAGE2;
+    else if (stage === 'stage3' && currentIndex < 2) newStatus = STATUS.STAGE3;
     else if (stage === 'stage4') {
-      newStatus = STATUS.STAGE4;
-      var closeDateCol = headers.indexOf('結案日期');
-      if (closeDateCol > -1) sheet.getRange(rowIdx, closeDateCol + 1).setValue(newDate());
+        newStatus = STATUS.STAGE4;
+        const closeDateCol = headers.indexOf('結案日期');
+        if (closeDateCol > -1) sheet.getRange(rowIdx, closeDateCol + 1).setValue(new Date());
     }
 
-    // 更新狀態規則：僅在「新階級 > 目前階級」時才覆蓋狀態
-    if(newStatus !== '' && (statusPriority[newStatus] > (statusPriority[currentStatus] || 0))) {
+    if (newStatus !== '') {
         sheet.getRange(rowIdx, headers.indexOf('辦理狀態') + 1).setValue(newStatus);
     }
     
-    // 將連結存回主清單對應欄位 (不論狀態，只要上傳就更新連結)
+    // 將連結存回主清單對應欄位
     let urlColNum = -1;
     if (stage === 'stage2') urlColNum = headers.indexOf('第2階段連結') + 1;
     else if (stage === 'stage3') urlColNum = headers.indexOf('第3階段連結') + 1;

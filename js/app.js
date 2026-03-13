@@ -604,47 +604,48 @@ const app = {
         const isAdmin = app.state.user.role === 'Admin';
 
         if (isAdmin) {
-            // 管理者顯示全階段上傳 (顏色管理)
-            content += app.getUploadSection(id, 'stage2', '🔴 補傳/更換第2階段：原始改善單', 'var(--warning)');
-            content += app.getUploadSection(id, 'stage3', '🟡 補傳/更換第3階段：工作隊核章版', 'var(--info)');
-            content += app.getUploadSection(id, 'stage4', '🟢 補傳/更換第4階段：結案完成版', 'var(--success)');
+            // 管理者顯示所有階段上傳 (顏色管理)
+            content += `<div style="display:flex; flex-direction:column; gap:16px;">
+                ${app.getUploadSection(id, 'stage2', '🔴 補傳/更換：原始改善單 (S2)', 'var(--warning)')}
+                ${app.getUploadSection(id, 'stage3', '🟡 補傳/更換：工作隊核章版 (S3)', '#fbbf24')}
+                ${app.getUploadSection(id, 'stage4', '🟢 補傳/更換：結案完成版 (S4)', 'var(--success)')}
+            </div>`;
         } else {
-            // 一般使用者依流程顯示
+            // 一般使用者依狀態顯示
             if (c['辦理狀態'] === '第1階段-已登錄' && isSafety) {
                 content += app.getUploadSection(id, 'stage2', '🔴 上傳原始改善單', 'var(--warning)');
             } else if (c['辦理狀態'] === '第2階段-改善單已上傳' && (isSafety || isDeptOwner)) {
                 if (isDeptOwner) {
                     content += `<div style="margin-bottom:15px; padding:12px; background:rgba(16,185,129,0.1); border-radius:10px; font-size:0.85rem; color:var(--success);">
-                        <i class="fas fa-info-circle"></i> 您可以先點擊下方「查看完整歷史紀錄」下載原始改善單，核章後再於此處上傳。
+                        <i class="fas fa-info-circle"></i> 您可以先點擊下方「歷史紀錄」下載原始改善單，核章後再於此處上傳。
                     </div>`;
                 }
-                content += app.getUploadSection(id, 'stage3', '🟡 上傳工作隊核章版', 'var(--info)');
+                content += app.getUploadSection(id, 'stage3', '🟡 上傳工作隊核章版', '#fbbf24');
             } else if (c['辦理狀態'] === '第3階段-工作隊版已處理' && isSafety) {
                 content += app.getUploadSection(id, 'stage4', '🟢 上傳結案完成版', 'var(--success)');
             }
         }
 
-        // 管理者專用區：直接列出所有已上傳檔案
+        // 管理者快速下載區 (優化顯示)
         if (isAdmin && (c['第2階段連結'] || c['第3階段連結'] || c['第4階段連結'])) {
             content += `<div style="margin-top:20px; padding:15px; background:rgba(0,0,0,0.03); border-radius:12px; border:1px solid var(--border);">
-                <div style="font-weight:800; margin-bottom:10px;"><i class="fas fa-folder-open"></i> 快速下載所有階段檔案</div>
+                <div style="font-weight:800; margin-bottom:10px;"><i class="fas fa-folder-open"></i> 已上傳檔案存檔</div>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                    ${c['第2階段連結'] ? `<a href="${c['第2階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.75rem;"><i class="fas fa-file-pdf"></i> 第2階段</a>` : ''}
-                    ${c['第3階段連結'] ? `<a href="${c['第3階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.75rem;"><i class="fas fa-file-pdf"></i> 第3階段</a>` : ''}
-                    ${c['第4階段連結'] ? `<a href="${c['第4階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.75rem;"><i class="fas fa-file-check"></i> 第4階段</a>` : ''}
+                    ${c['第2階段連結'] ? `<a href="${c['第2階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.75rem;"><i class="fas fa-file-pdf"></i> S2 原始單</a>` : ''}
+                    ${c['第3階段連結'] ? `<a href="${c['第3階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.75rem;"><i class="fas fa-file-pdf"></i> S3 核章版</a>` : ''}
+                    ${c['第4階段連結'] ? `<a href="${c['第4階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.75rem;"><i class="fas fa-file-check"></i> S4 結案版</a>` : ''}
                 </div>
             </div>`;
         }
         
-        // 所有具備查看權限者皆可看歷史紀錄 (含下載連結)
         content += `<button class="btn btn-outline" style="width:100%; margin-top:15px;" onclick="app.viewHistory('${id}')"><i class="fas fa-history"></i> 查看完整歷史紀錄</button>`;
         
         app.openModal(`案件管理: ${c['工程簡稱']}`, content);
     },
     getUploadSection: (id, stage, label, color) => `
-        <div style="background:var(--bg-card); padding:16px; border-radius:12px; border:2px solid ${color || 'var(--border)'}; margin-bottom:16px;">
-            <p style="margin-top:0; font-weight:800; color:${color || 'inherit'}">${label}</p>
-            <input type="file" id="file_${stage}" style="margin-bottom:12px; color:var(--text-main); width:100%;" />
+        <div style="background:var(--bg-card); padding:16px; border-radius:12px; border:1px solid ${color || 'var(--border)'}; border-left-width:5px;">
+            <p style="margin-top:0; font-weight:800; color:${color || 'inherit'};">${label}</p>
+            <input type="file" id="file_${stage}" style="margin-bottom:12px; color:var(--text-main); font-size:0.85rem;" />
             <button class="btn" style="width:100%; justify-content:center; background:${color || 'var(--primary)'}; color:white;" onclick="app.submitFile('${id}', '${stage}')">確認上傳</button>
         </div>
     `,
