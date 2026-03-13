@@ -78,5 +78,8 @@ const api = {
     deleteDeficiency: (id) => api.request('delete_deficiency', { id }),
 
     // 取得公開案件 (未登入用)
-    getPublicCases: () => api.request('get_public_cases')
+    getPublicCases: () => api.request('get_public_cases'),
+
+    // 使用者管理
+    saveUser: (data) => api.request('save_user', data)
 };

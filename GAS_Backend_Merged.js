@@ -135,12 +135,21 @@ function doPost(e) {
         break;
 
       case 'delete_deficiency':
-        if(roleData.role !== 'Admin') throw new Error("無權限執行此操作。");
-        result = deleteDeficiency_(payload.id);
+        if(roleData.role !== 'Admin') {
+            throw new Error("稽催功能僅限管理員。");
+        }
+        result = manualRemindNotifications();
+        break;
+
+      case 'save_user':
+        if(roleData.role !== 'Admin') {
+            throw new Error("使用者管理僅限管理員。");
+        }
+        result = saveUser_(payload);
         break;
 
       default:
-        throw new Error("未知的 API 操作: " + action);
+        throw new Error("未定義的 Action: " + action);
     }
 
     return createJsonResponse(result);
@@ -328,7 +337,7 @@ function registerInspection(data) {
   }
 }
 
-function uploadInspectionFile(fileInfo, caseId, stage, modifier) {
+function uploadInspectionFile(fileInfo, caseId, stage, roleData) {
   try {
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_AUDIT_LIST);
     const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
@@ -651,6 +660,51 @@ function deleteCase_(id) {
     return { success: true, records: getAuditRecords_() };
   }
   throw new Error("找不到該案件: " + id);
+}
+
+function saveUser_(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(SHEET_USER_PERMISSIONS);
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const emailCol = headers.indexOf('Email');
+    const nameCol = headers.indexOf('姓名');
+    const roleCol = headers.indexOf('Role');
+    const deptCol = headers.indexOf('Department');
+    const activeCol = headers.indexOf('Active');
+
+    let rowIdx = -1;
+    for (let i = 1; i < data.length; i++) {
+        if (data[i][emailCol] === payload.email) {
+            rowIdx = i + 1;
+            break;
+        }
+    }
+
+    if (rowIdx > -1) {
+        // Update
+        sheet.getRange(rowIdx, nameCol + 1).setValue(payload.name);
+        sheet.getRange(rowIdx, roleCol + 1).setValue(payload.role);
+        sheet.getRange(rowIdx, deptCol + 1).setValue(payload.department);
+        sheet.getRange(rowIdx, activeCol + 1).setValue(payload.active !== undefined ? payload.active : true);
+    } else {
+        // Add new
+        const newRow = [];
+        headers.forEach(h => {
+            if (h === 'Email') newRow.push(payload.email);
+            else if (h === '姓名') newRow.push(payload.name);
+            else if (h === 'Role') newRow.push(payload.role);
+            else if (h === 'Department') newRow.push(payload.department);
+            else if (h === 'Active') newRow.push(true);
+            else newRow.push('');
+        });
+        sheet.appendRow(newRow);
+    }
+    return { success: true, message: "使用者資料已儲存" };
+  } catch (e) {
+    throw new Error("儲存使用者失敗: " + e.message);
+  }
 }
 
 /** 取得公開案件 (僅限未結案，且不含敏感資料) */

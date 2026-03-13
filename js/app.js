@@ -568,12 +568,83 @@ const app = {
     fetchUsers: async () => { try { const res = await api.getUsers(); app.state.users = res.data; if(app.state.currentView === 'users') app.renderUsers(); } catch(e){} },
     renderUsers: () => {
         const tbody = document.getElementById('userListBody');
-        if (!tbody) return;
+        const container = document.getElementById('viewUsers');
+        if (!tbody || !container) return;
+        
+        // Ensure Add User button exists
+        if (!document.getElementById('btnAddUser')) {
+            const btn = document.createElement('button');
+            btn.id = 'btnAddUser';
+            btn.className = 'btn btn-primary';
+            btn.style.margin = '0 15px 15px';
+            btn.innerHTML = '<i class="fas fa-plus"></i> 新增帳號';
+            btn.onclick = () => app.openUserModal();
+            container.insertBefore(btn, container.querySelector('.case-table'));
+        }
+
         const validUsers = app.state.users.filter(u => u.email && u.email.trim() !== '');
-        tbody.innerHTML = validUsers.length ? '' : `<tr><td colspan="5" style="text-align:center; padding:20px;">尚無權限資料</td></tr>`;
+        tbody.innerHTML = validUsers.length ? '' : `<tr><td colspan="6" style="text-align:center; padding:20px;">尚無權限資料</td></tr>`;
         validUsers.forEach(u => {
-            tbody.innerHTML += `<tr><td>${u.name}</td><td>${u.email}</td><td><span class="badge badge-status">${u.role}</span></td><td>${u.department}</td><td>${u.active ? '🟢' : '🔴'}</td></tr>`;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${u.name}</td>
+                <td>${u.email}</td>
+                <td><span class="badge badge-status">${u.role}</span></td>
+                <td>${u.department}</td>
+                <td>${u.active ? '🟢 啟用' : '🔴 停用'}</td>
+                <td><button class="btn btn-outline" style="padding:4px 10px; font-size:0.8rem;" onclick='app.openUserModal(${JSON.stringify(u)})'>編輯</button></td>
+            `;
+            tbody.appendChild(tr);
         });
+    },
+
+    openUserModal: (user = null) => {
+        const title = user ? '修改權限' : '新增使用者帳號';
+        const html = `
+            <div style="display:flex; flex-direction:column; gap:15px;">
+                <div><label>電子信箱：</label><input type="email" id="uEmail" value="${user ? user.email : ''}" ${user ? 'readonly style="background:var(--bg-input);"' : ''}></div>
+                <div><label>姓名：</label><input type="text" id="uName" value="${user ? user.name : ''}"></div>
+                <div><label>授權角色：</label>
+                    <select id="uRole">
+                        <option value="Admin" ${user && user.role === 'Admin' ? 'selected' : ''}>Admin (管理者)</option>
+                        <option value="SafetyUploader" ${user && user.role === 'SafetyUploader' ? 'selected' : ''}>SafetyUploader (工安稽核)</option>
+                        <option value="DepartmentUploader" ${user && user.role === 'DepartmentUploader' ? 'selected' : ''}>DepartmentUploader (部門填報)</option>
+                    </select>
+                </div>
+                <div><label>所屬部門：</label><input type="text" id="uDept" value="${user ? user.department : ''}" placeholder="例如：工安組、工務段"></div>
+                ${user ? `<div><label>帳號狀態：</label>
+                    <select id="uActive">
+                        <option value="true" ${user.active ? 'selected' : ''}>啟用</option>
+                        <option value="false" ${!user.active ? 'selected' : ''}>停用</option>
+                    </select>
+                </div>` : ''}
+                <button class="btn btn-primary" style="margin-top:10px; justify-content:center;" onclick="app.submitUser()">確認儲存</button>
+            </div>
+        `;
+        app.openModal(title, html);
+    },
+
+    submitUser: async () => {
+        const email = document.getElementById('uEmail').value.trim();
+        const name = document.getElementById('uName').value.trim();
+        const role = document.getElementById('uRole').value;
+        const department = document.getElementById('uDept').value.trim();
+        const activeElem = document.getElementById('uActive');
+        const active = activeElem ? activeElem.value === 'true' : true;
+
+        if (!email || !name || !department) return app.showToast("請填寫所有欄位", "error");
+        
+        app.setModalLoading(true);
+        try {
+            await api.saveUser({ email, name, role, department, active });
+            app.showToast("使用者設定已更新");
+            app.fetchUsers();
+            app.closeModal();
+        } catch (e) {
+            app.showToast(e.message, "error");
+        } finally {
+            app.setModalLoading(false);
+        }
     },
 
     /** 統計與基礎共用函數 */
