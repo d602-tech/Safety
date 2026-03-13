@@ -42,6 +42,13 @@ const app = {
         }
     },
 
+    setModalLoading: (show) => {
+        const modalLoading = document.getElementById('modalLoading');
+        const submitBtns = document.querySelectorAll('.modal .btn-primary');
+        if (modalLoading) show ? modalLoading.classList.remove('hidden') : modalLoading.classList.add('hidden');
+        submitBtns.forEach(btn => btn.disabled = show);
+    },
+
     /** ======================== 初始化與身分驗證 ======================== */
     initAuth: () => {
         app.setTheme(app.state.theme);
@@ -400,8 +407,18 @@ const app = {
 
         if (!content || !deadline || !department) return app.showToast("請填寫所有欄位", "error");
 
+        app.setModalLoading(true);
         const p = { caseId, abbr, content, deadline, department, status: '待改善' };
-        try { await api.updateDeficiency(p); app.fetchDeficiencies(); app.closeModal(); app.showToast("✅ 已新增缺失"); } catch(e) { app.showToast(e.message, "error"); }
+        try { 
+            await api.updateDeficiency(p); 
+            app.fetchDeficiencies(); 
+            app.closeModal(); 
+            app.showToast("✅ 已新增缺失"); 
+        } catch(e) { 
+            app.showToast(e.message, "error"); 
+        } finally {
+            app.setModalLoading(false);
+        }
     },
 
     /** 5. 工程管理 */
@@ -441,12 +458,34 @@ const app = {
 
         if (!abbr || !name || !contractor || !department) return app.showToast("請填寫完整資訊", "error");
 
+        app.setModalLoading(true);
         const p = { abbr, name, contractor, department };
-        try { const res = await api.addProject(p); app.state.projects = res.projects; app.renderProjects(); app.closeModal(); app.showToast("工程新增成功"); } catch(e){ app.showToast(e.message, "error"); }
+        try { 
+            const res = await api.addProject(p); 
+            app.state.projects = res.projects; 
+            app.renderProjects(); 
+            app.closeModal(); 
+            app.showToast("工程新增成功"); 
+        } catch(e){ 
+            app.showToast(e.message, "error"); 
+        } finally {
+            app.setModalLoading(false);
+        }
     },
     deleteProject: async (serial) => {
        if(!confirm("確定要刪除此工程項目？")) return;
-       try { const res = await api.deleteProject(serial); app.state.projects = res.projects; app.renderProjects(); app.showToast("已刪除"); } catch(e){ app.showToast(e.message, "error"); }
+       const btn = event.currentTarget;
+       if (btn) btn.disabled = true;
+       try { 
+           const res = await api.deleteProject(serial); 
+           app.state.projects = res.projects; 
+           app.renderProjects(); 
+           app.showToast("已刪除"); 
+       } catch(e){ 
+           app.showToast(e.message, "error"); 
+       } finally {
+           if (btn) btn.disabled = false;
+       }
     },
 
     /** 獲取使用者權限清單 */
@@ -500,6 +539,7 @@ const app = {
         const input = document.getElementById(`file_${stage}`);
         if(!input.files.length) return app.showToast("請先選擇檔案", "error");
         const file = input.files[0];
+        app.setModalLoading(true);
         try {
             const base64 = await app.fileToBase64(file);
             await api.uploadFile(id, stage, base64, file.name, app.state.user.email);
@@ -507,7 +547,11 @@ const app = {
             app.state.cases = res.data.cases;
             app.updateStats(); app.renderView(); app.closeModal();
             app.showToast("✅ 上傳成功");
-        } catch(e) { app.showToast(e.message, "error"); }
+        } catch(e) { 
+            app.showToast(e.message, "error"); 
+        } finally {
+            app.setModalLoading(false);
+        }
     },
     fileToBase64: (file) => new Promise((resolve) => {
         const reader = new FileReader(); reader.readAsDataURL(file);
@@ -540,9 +584,30 @@ const app = {
         const date = document.getElementById('newDate').value;
         if (!pAbbr || !date) return app.showToast("工程與日期為必填", "error");
         
+        app.setModalLoading(true);
         const pInfo = app.state.projects.find(p => p.abbr === pAbbr);
-        try { const res = await api.createCase({ ...pInfo, auditDate: date }); app.state.cases = res.records; app.updateStats(); app.renderView(); app.closeModal(); app.showToast("✅ 案件登錄成功"); } catch(e) { app.showToast(e.message, "error"); }
-    }
-};
+        try { 
+            const res = await api.createCase({ ...pInfo, auditDate: date }); 
+            app.state.cases = res.records; 
+            app.updateStats(); app.renderView(); app.closeModal(); 
+            app.showToast("✅ 案件登錄成功"); 
+        } catch(e) { 
+            app.showToast(e.message, "error"); 
+        } finally {
+            app.setModalLoading(false);
+        }
+    triggerManualRemind: async () => {
+        const btn = document.getElementById('btnRemind');
+        if (btn) btn.disabled = true;
+        app.showToast("正在處理稽催信件...", "success");
+        try {
+            await api.manualRemind();
+            app.showToast("✅ 稽催信件已發送");
+        } catch(e) {
+            app.showToast(e.message, "error");
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    },
 
 window.onload = () => app.initAuth();
