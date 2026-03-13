@@ -47,6 +47,11 @@ function doPost(e) {
     const request = JSON.parse(e.postData.contents);
     const action = request.action;
     const payload = request.payload || {};
+
+    // 【公開 API】允許未登入存取特定功能
+    if (action === 'get_public_cases') {
+        return createJsonResponse(getPublicCases_());
+    }
     
     // 【防護網一：驗證前端傳來的 Token】
     // 取得 Google JWT ID Token，並透過 Google API 驗證解析出真實 Email
@@ -606,6 +611,23 @@ function deleteCase_(id) {
     return { success: true, records: getAuditRecords_() };
   }
   throw new Error("找不到該案件: " + id);
+}
+
+/** 取得公開案件 (僅限未結案，且不含敏感資料) */
+function getPublicCases_() {
+  try {
+    const allRecords = getAuditRecords_();
+    const incompleteCases = allRecords.filter(function(r) { return r['辦理狀態'] !== STATUS.STAGE4; });
+    return {
+      success: true,
+      data: {
+        cases: incompleteCases,
+        projects: getProjectOptions_() // 下拉選單供搜尋過濾使用
+      }
+    };
+  } catch (e) {
+    return { success: false, message: "公用資料讀取失敗" };
+  }
 }
 
 function getAuditRecords_() {

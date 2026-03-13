@@ -80,7 +80,7 @@ body {
     cursor: pointer;
 }
 
-.main-container { max-width: 1400px; margin: 0 auto; padding: 0 24px; }
+.main-container { max-width: 1400px; margin: 0 auto; padding: 20px 32px; }
 
 /* 儀表板區域 */
 .dashboard {
@@ -164,11 +164,14 @@ body {
 
 /* 控制區塊樣式 */
 .controls {
-    display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 24px; gap: 16px;
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
+    margin-bottom: 32px; 
+    gap: 24px;
 }
 
-.filter-group { display: flex; gap: 10px; }
+.filter-group { display: flex; gap: 16px; }
 .view-switch { display: flex; background: var(--bg-input); padding: 4px; border-radius: 10px; border: 1px solid var(--border); }
 .switch-btn { 
     padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;
@@ -179,15 +182,15 @@ body {
 /* 網格視圖樣式 */
 .grid-view {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-    gap: 24px;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 32px;
 }
 
 .case-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 20px;
-    padding: 20px;
+    padding: 24px;
     box-shadow: var(--shadow);
     transition: var(--transition);
     position: relative;
@@ -264,8 +267,8 @@ input:focus, select:focus, textarea:focus {
 }
 
 .case-table { width: 100%; border-collapse: collapse; }
-.case-table th { background: rgba(0,0,0,0.05); text-align: left; padding: 14px 16px; font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; }
-.case-table td { padding: 14px 16px; border-top: 1px solid var(--border); font-size: 0.9rem; }
+.case-table th { background: rgba(0,0,0,0.05); text-align: left; padding: 18px 20px; font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; }
+.case-table td { padding: 18px 20px; border-top: 1px solid var(--border); font-size: 0.9rem; }
 .case-table tr:hover { background: rgba(255,255,255,0.03); }
 
 /* 模態框與載入中 */

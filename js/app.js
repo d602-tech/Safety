@@ -66,6 +66,27 @@ const app = {
             document.getElementById("googleLoginBtn"),
             { theme: app.state.theme === 'light' ? 'outline' : 'filled_blue', size: "large", shape: "pill" }
         );
+
+        // 未登入狀態下先抓取預設公開資料
+        if (!app.state.user) {
+            app.fetchPublicData();
+        }
+    },
+
+    fetchPublicData: async () => {
+        app.showLoading(true);
+        try {
+            const res = await api.getPublicCases();
+            app.state.cases = res.data.cases || [];
+            app.state.projects = res.data.projects || [];
+            app.extractDepartments();
+            app.updateStats();
+            app.renderView();
+        } catch (e) {
+            console.error("無法載入預設資料", e);
+        } finally {
+            app.showLoading(false);
+        }
     },
 
     handleCredentialResponse: async (response) => {
@@ -110,7 +131,7 @@ const app = {
         document.getElementById('googleLoginBtn').classList.remove('hidden');
         app.toggleView('cases');
         app.applyRoleRestrictions();
-        app.renderView();
+        app.fetchPublicData(); // 登出後切換回訪客資料
     },
 
     applyRoleRestrictions: () => {

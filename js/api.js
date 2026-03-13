@@ -75,5 +75,8 @@ const api = {
     // 缺失清單
     getDeficiencies: () => api.request('get_deficiencies'),
     updateDeficiency: (p) => api.request('update_deficiency', p),
-    deleteDeficiency: (id) => api.request('delete_deficiency', { id })
+    deleteDeficiency: (id) => api.request('delete_deficiency', { id }),
+
+    // 取得公開案件 (未登入用)
+    getPublicCases: () => api.request('get_public_cases')
 };
