@@ -359,7 +359,6 @@ const app = {
                 </div>
                 <div class="card-footer">
                     <button class="btn btn-primary" onclick="app.openManage('${c.id}')">管理</button>
-                    <button class="btn btn-outline" onclick="app.openAddDefModal('${c.id}', '${c['工程簡稱']}', '${c['主辦部門']}')"><i class="fas fa-plus"></i> 缺失</button>
                     <button class="btn btn-outline" onclick="app.viewHistory('${c.id}')"><i class="fas fa-history"></i></button>
                     ${isAdmin ? `<button class="btn btn-outline" style="color:var(--warning); border-color:var(--warning);" onclick="app.deleteCase('${c.id}')"><i class="fas fa-trash"></i></button>` : ''}
                 </div>
@@ -666,10 +665,25 @@ const app = {
     closeModal: () => { document.getElementById('modalOverlay').classList.add('hidden'); },
 
     // 案件管理與上傳邏輯 (延用上一版本並微調)
-    openManage: (id) => {
-        const c = app.state.cases.find(x => x.id === id);
+    openManage: async (id) => {
+        const c = app.state.cases.find(item => item.id == id);
         if (!c) return;
-        let content = `<div style="margin-bottom:20px; padding:15px; background:rgba(0,120,255,0.05); border-radius:12px; font-weight:700;">狀態：${c['辦理狀態']}</div>`;
+        
+        // 流程說明區塊
+        let content = `
+            <div style="margin-bottom:20px; padding:15px; background:rgba(99,102,241,0.05); border-radius:14px; font-size:0.85rem; line-height:1.6; border:1px solid rgba(99,102,241,0.1);">
+                <div style="font-weight:800; color:var(--primary); margin-bottom:8px;"><i class="fas fa-info-circle"></i> 案件辦理流程說明</div>
+                <div style="display:grid; grid-template-columns:auto 1fr; gap:5px 12px;">
+                    <b style="color:var(--warning);">S2:</b> <span>原始工安紀錄及改善清單 (查核人員上傳)</span>
+                    <b style="color:var(--info);">S3:</b> <span>部門改善核章版 (受查部門上傳)</span>
+                    <b style="color:var(--success);">S4:</b> <span>結案完成版 (工安組上傳)</span>
+                </div>
+            </div>
+            <div style="margin-bottom:20px; padding:15px; background:rgba(0,120,255,0.05); border-radius:12px; font-weight:700;">
+                當前狀態：<span style="color:var(--primary);">${c['辦理狀態']}</span>
+            </div>
+        `;
+
         const isSafety = (app.state.user.role === 'Admin' || app.state.user.role === 'SafetyUploader');
         const isDeptOwner = (app.state.user.role === 'DepartmentUploader' && c['主辦部門'] === app.state.user.department);
         const isAdmin = app.state.user.role === 'Admin';
@@ -677,7 +691,7 @@ const app = {
         if (isAdmin) {
             // 管理者顯示所有階段上傳 (顏色管理)
             content += `<div style="display:flex; flex-direction:column; gap:16px;">
-                ${app.getUploadSection(id, 'stage2', '🔴 補傳/更換：原始改善單 (S2)', 'var(--warning)')}
+                ${app.getUploadSection(id, 'stage2', '🔴 補傳/更換：原始改善單 (S2)', 'var(--warning)', '請上傳 Word 檔，方便改善部門修改')}
                 ${app.getUploadSection(id, 'stage3', '🟡 補傳/更換：工作隊核章版 (S3)', '#fbbf24')}
                 ${app.getUploadSection(id, 'stage4', '🟢 補傳/更換：結案完成版 (S4)', 'var(--success)')}
             </div>`;
@@ -713,9 +727,10 @@ const app = {
         
         app.openModal(`案件管理: ${c['工程簡稱']}`, content);
     },
-    getUploadSection: (id, stage, label, color) => `
+    getUploadSection: (id, stage, label, color, note = '') => `
         <div style="background:var(--bg-card); padding:16px; border-radius:12px; border:1px solid ${color || 'var(--border)'}; border-left-width:5px;">
-            <p style="margin-top:0; font-weight:800; color:${color || 'inherit'};">${label}</p>
+            <p style="margin:0 0 8px; font-weight:800; color:${color || 'inherit'};">${label}</p>
+            ${note ? `<p style="margin:0 0 12px; font-size:0.75rem; color:var(--text-muted);"><i class="fas fa-exclamation-circle"></i> ${note}</p>` : ''}
             <input type="file" id="file_${stage}" style="margin-bottom:12px; color:var(--text-main); font-size:0.85rem;" />
             <button class="btn" style="width:100%; justify-content:center; background:${color || 'var(--primary)'}; color:white;" onclick="app.submitFile('${id}', '${stage}')">確認上傳</button>
         </div>

@@ -162,22 +162,115 @@ body {
 .flow-footer { margin-top: auto; display: flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: color 0.2s; }
 .flow-footer:hover { color: var(--primary); }
 
-/* 控制區塊樣式 */
-.controls {
-    display: flex; 
-    justify-content: space-between; 
+/* 工具列區域 */
+.toolbar {
+    display: flex;
+    justify-content: space-between;
     align-items: center;
-    margin-bottom: 32px; 
     gap: 24px;
+    margin-bottom: 24px;
+    background: var(--bg-card);
+    padding: 12px 20px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    flex-wrap: wrap; /* 支援多行 */
 }
 
-.filter-group { display: flex; gap: 16px; }
-.view-switch { display: flex; background: var(--bg-input); padding: 4px; border-radius: 10px; border: 1px solid var(--border); }
-.switch-btn { 
-    padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;
-    transition: var(--transition); border: none; background: transparent; color: var(--text-muted);
+.toolbar-left, .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
 }
-.switch-btn.active { background: var(--primary); color: white; box-shadow: var(--shadow); }
+
+.filter-group, .utility-group, .actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.search-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-wrapper i {
+    position: absolute;
+    left: 14px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    pointer-events: none;
+}
+
+.search-wrapper input {
+    padding-left: 38px;
+    height: 42px;
+    font-size: 0.9rem;
+    width: 240px;
+    border: 1px solid var(--border);
+    transition: var(--transition);
+}
+
+.search-wrapper input:focus {
+    width: 300px;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+}
+
+.view-switch-wrapper {
+    padding: 4px;
+    background: rgba(0,0,0,0.03);
+    border-radius: 12px;
+}
+
+.view-switch {
+    display: flex;
+    gap: 2px;
+}
+
+.switch-btn {
+    width: 38px;
+    height: 34px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.switch-btn.active {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+.switch-btn:hover:not(.active) {
+    background: rgba(0,0,0,0.05);
+    color: var(--text-main);
+}
+
+/* 按鈕進階樣式 */
+.btn-round {
+    border-radius: 20px !important;
+    padding: 8px 16px !important;
+    font-size: 0.85rem !important;
+}
+
+.btn-glass {
+    background: rgba(var(--primary-rgb, 99, 102, 241), 0.05) !important;
+    color: var(--primary) !important;
+    border: 1px solid rgba(var(--primary-rgb, 99, 102, 241), 0.2) !important;
+}
+
+.btn-glass:hover {
+    background: rgba(var(--primary-rgb, 99, 102, 241), 0.1) !important;
+    transform: translateY(-2px);
+}
 
 /* 網格視圖樣式 */
 .grid-view {
