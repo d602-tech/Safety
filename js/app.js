@@ -238,6 +238,38 @@ const app = {
         else if (app.state.viewMode === 'calendar') app.renderCalendar(filtered);
     },
 
+    /** 取得案件的檔案狀態 HTML (包含圖示與下載連結) */
+    getFileStatusHtml: (c) => {
+        const canAccess = app.state.user && (
+            app.state.user.role === 'Admin' || 
+            app.state.user.role === 'SafetyUploader' || 
+            (app.state.user.role === 'DepartmentUploader' && c['主辦部門'] === app.state.user.department)
+        );
+
+        const stages = [
+            { key: '第2階段連結', label: 'S2', class: 's2', icon: 'fa-file-pdf' },
+            { key: '第3階段連結', label: 'S3', class: 's3', icon: 'fa-file-pdf' },
+            { key: '第4階段連結', label: 'S4', class: 's4', icon: 'fa-file-check' }
+        ];
+
+        return `
+            <div class="file-status-icons">
+                ${stages.map(s => {
+                    const url = c[s.key];
+                    if (url && canAccess) {
+                        return `<a href="${url}" target="_blank" class="file-icon uploaded ${s.class}" title="已上傳 ${s.label}"><i class="fas ${s.icon}"></i> ${s.label}</a>`;
+                    } else if (url && !canAccess) {
+                        // 有檔案但沒權限下載，顯示鎖定圖示
+                        return `<div class="file-icon uploaded" title="已上傳，但您無權下載" style="color:var(--text-muted);"><i class="fas fa-lock"></i> ${s.label}</div>`;
+                    } else {
+                        // 尚未上傳
+                        return `<div class="file-icon missing" title="${s.label} 尚未上傳"><i class="fas ${s.icon}"></i> ${s.label}</div>`;
+                    }
+                }).join('')}
+            </div>
+        `;
+    },
+
     getFilteredCases: () => {
         const deptFilter = document.getElementById('filterDepartment')?.value || '';
         const statusFilter = document.getElementById('filterStatus')?.value || '';
@@ -331,12 +363,10 @@ const app = {
                     <button class="btn btn-outline" onclick="app.viewHistory('${c.id}')"><i class="fas fa-history"></i></button>
                     ${isAdmin ? `<button class="btn btn-outline" style="color:var(--warning); border-color:var(--warning);" onclick="app.deleteCase('${c.id}')"><i class="fas fa-trash"></i></button>` : ''}
                 </div>
-                ${isAdmin ? `
-                <div style="padding: 10px 24px; border-top: 1px dashed var(--border); display: flex; gap: 15px; font-size: 0.8rem;">
-                    ${c['第2階段連結'] ? `<a href="${c['第2階段連結']}" target="_blank" title="下載第2階段" style="color:var(--warning);"><i class="fas fa-file-pdf"></i> S2</a>` : ''}
-                    ${c['第3階段連結'] ? `<a href="${c['第3階段連結']}" target="_blank" title="下載第3階段" style="color:var(--info);"><i class="fas fa-file-pdf"></i> S3</a>` : ''}
-                    ${c['第4階段連結'] ? `<a href="${c['第4階段連結']}" target="_blank" title="下載第4階段" style="color:var(--success);"><i class="fas fa-file-check"></i> S4</a>` : ''}
-                </div>` : ''}
+                <!-- 檔案狀態指示器 (原本為 Admin 專用改為公開狀態顯示) -->
+                <div style="padding: 12px 24px; border-top: 1px dashed var(--border);">
+                    ${app.getFileStatusHtml(c)}
+                </div>
             `;
             container.appendChild(card);
         });
@@ -356,6 +386,7 @@ const app = {
                 <td>${c['主辦部門']}</td>
                 <td>${c['查核日期']}</td>
                 <td>${c['最晚應核章日期']}</td>
+                <td>${app.getFileStatusHtml(c)}</td>
                 <td><span class="badge ${c['辦理狀態'] === '第4階段-已結案' ? 'success' : 'badge-status'}">${c['辦理狀態']}</span></td>
                 <td>
                     <div style="display:flex; gap:5px;">
