@@ -344,11 +344,14 @@ const app = {
             const isClosed = c['辦理狀態'] === '第4階段-已結案';
             const isOverdue = !isClosed && (c['最晚應核章日期'] < todayStr);
             const isAdmin = app.state.user && app.state.user.role === 'Admin';
+            const projInfo = app.state.projects.find(p => p.abbr === c['工程簡稱']);
+            const snLabel = projInfo ? `${projInfo.serial} - ` : '';
             const card = document.createElement('div');
             card.className = 'case-card';
+            card.setAttribute('data-dept', c['主辦部門'] || '');
             card.innerHTML = `
                 <div class="card-header">
-                    <h4>${c['工程簡稱']}</h4>
+                    <h4>${snLabel}${c['工程簡稱']}</h4>
                     <span class="badge ${isOverdue ? 'warning' : (isClosed ? 'success' : 'badge-status')}">${c['辦理狀態']}</span>
                 </div>
                 <div class="card-body">
@@ -380,7 +383,7 @@ const app = {
         cases.forEach(c => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><b>${c['工程簡稱']}</b></td>
+                <td><b>${snLabel}${c['工程簡稱']}</b></td>
                 <td>${c['承攬商']}</td>
                 <td>${c['主辦部門']}</td>
                 <td>${c['查核日期']}</td>
@@ -689,26 +692,28 @@ const app = {
         const isAdmin = app.state.user.role === 'Admin';
 
         if (isAdmin) {
-            // 管理者顯示所有階段上傳 (顏色管理)
-            content += `<div style="display:flex; flex-direction:column; gap:16px;">
-                ${app.getUploadSection(id, 'stage2', '🔴 補傳/更換：原始改善單 (S2)', 'var(--warning)', '請上傳 Word 檔，方便改善部門修改')}
-                ${app.getUploadSection(id, 'stage3', '🟡 補傳/更換：工作隊核章版 (S3)', '#fbbf24')}
-                ${app.getUploadSection(id, 'stage4', '🟢 補傳/更換：結案完成版 (S4)', 'var(--success)')}
+            // 管理者顯示所有階段上傳
+            content += `<div class="manage-grid">
+                ${app.getUploadSection(id, 'stage2', '🔴 原始改善單 (S2)', 'var(--warning)', '請補傳/更換 Word 檔，方便改善部門修改')}
+                ${app.getUploadSection(id, 'stage3', '🟡 工作隊核章版 (S3)', '#fbbf24', '補傳或更換核章版')}
+                ${app.getUploadSection(id, 'stage4', '🟢 結案完成版 (S4)', 'var(--success)', '補傳或更換結案版')}
             </div>`;
         } else {
             // 一般使用者依狀態顯示
+            content += `<div class="manage-grid">`;
             if (c['辦理狀態'] === '第1階段-已登錄' && isSafety) {
                 content += app.getUploadSection(id, 'stage2', '🔴 上傳原始改善單', 'var(--warning)');
             } else if (c['辦理狀態'] === '第2階段-改善單已上傳' && (isSafety || isDeptOwner)) {
                 if (isDeptOwner) {
-                    content += `<div style="margin-bottom:15px; padding:12px; background:rgba(16,185,129,0.1); border-radius:10px; font-size:0.85rem; color:var(--success);">
-                        <i class="fas fa-info-circle"></i> 您可以先點擊下方「歷史紀錄」下載原始改善單，核章後再於此處上傳。
+                    content += `<div class="upload-section" style="background:rgba(16,185,129,0.05); border:1px dashed var(--success); grid-column: 1/-1;">
+                        <p class="upload-note"><i class="fas fa-info-circle"></i> 您可以先查看歷史紀錄下載原始改善單，核章後再於此處上傳。</p>
                     </div>`;
                 }
                 content += app.getUploadSection(id, 'stage3', '🟡 上傳工作隊核章版', '#fbbf24');
             } else if (c['辦理狀態'] === '第3階段-工作隊版已處理' && isSafety) {
                 content += app.getUploadSection(id, 'stage4', '🟢 上傳結案完成版', 'var(--success)');
             }
+            content += `</div>`;
         }
 
         // 管理者快速下載區 (優化顯示)
@@ -728,11 +733,15 @@ const app = {
         app.openModal(`案件管理: ${c['工程簡稱']}`, content);
     },
     getUploadSection: (id, stage, label, color, note = '') => `
-        <div style="background:var(--bg-card); padding:16px; border-radius:12px; border:1px solid ${color || 'var(--border)'}; border-left-width:5px;">
-            <p style="margin:0 0 8px; font-weight:800; color:${color || 'inherit'};">${label}</p>
-            ${note ? `<p style="margin:0 0 12px; font-size:0.75rem; color:var(--text-muted);"><i class="fas fa-exclamation-circle"></i> ${note}</p>` : ''}
-            <input type="file" id="file_${stage}" style="margin-bottom:12px; color:var(--text-main); font-size:0.85rem;" />
-            <button class="btn" style="width:100%; justify-content:center; background:${color || 'var(--primary)'}; color:white;" onclick="app.submitFile('${id}', '${stage}')">確認上傳</button>
+        <div class="upload-section" style="border-left: 5px solid ${color || 'var(--border)'}">
+            <div class="upload-header" style="color:${color || 'inherit'}">
+                <i class="fas fa-cloud-upload-alt"></i> ${label}
+            </div>
+            ${note ? `<p class="upload-note">${note}</p>` : ''}
+            <div class="upload-actions">
+                <input type="file" id="file_${stage}" style="width:100%; margin-bottom:12px; font-size:0.8rem;" />
+                <button class="btn" style="width:100%; justify-content:center; background:${color || 'var(--primary)'}; color:white;" onclick="app.submitFile('${id}', '${stage}')">確認存檔</button>
+            </div>
         </div>
     `,
     submitFile: async (id, stage) => {
