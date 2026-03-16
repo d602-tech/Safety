@@ -662,7 +662,7 @@ const app = {
     extractDepartments: () => {
         const depts = new Set(app.state.cases.map(c => c['主辦部門']).filter(Boolean));
         const select = document.getElementById('filterDepartment');
-        if (select) { select.innerHTML = '<option value="">全部部門</option>'; depts.forEach(d => select.innerHTML += `<option value="${d}">${d}</option>`); }
+        if (select) { select.innerHTML = '<option value="">全部工作隊</option>'; depts.forEach(d => select.innerHTML += `<option value="${d}">${d}</option>`); }
     },
     setQuickFilter: (type) => { app.state.quickFilter = type; if (app.state.currentView !== 'cases') app.toggleView('cases'); app.renderView(); },
     showLoading: (show) => { const l = document.getElementById('loading'); if(l) show ? l.classList.remove('hidden') : l.classList.add('hidden'); },
@@ -732,7 +732,9 @@ const app = {
         
         content += `<button class="btn btn-outline" style="width:100%; margin-top:15px;" onclick="app.viewHistory('${id}')"><i class="fas fa-history"></i> 查看完整歷史紀錄</button>`;
         
-        app.openModal(`案件管理: ${c['工程簡稱']}`, content);
+        const projInfo = app.state.projects.find(p => p.abbr === c['工程簡稱']);
+        const snLabel = projInfo ? `${projInfo.serial} - ` : '';
+        app.openModal(`案件管理: ${snLabel}${c['工程簡稱']}`, content);
     },
     getUploadSection: (id, stage, label, color, note = '') => `
         <div class="upload-section" style="border-left: 5px solid ${color || 'var(--border)'}">
