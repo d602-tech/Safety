@@ -669,11 +669,11 @@ function saveUser_(payload) {
     const sheet = ss.getSheetByName(SHEET_USER_PERMISSIONS);
     const data = sheet.getDataRange().getValues();
     const headers = data[0];
-    const emailCol = headers.indexOf('Email');
-    const nameCol = headers.indexOf('姓名');
-    const roleCol = headers.indexOf('Role');
-    const deptCol = headers.indexOf('Department');
-    const activeCol = headers.indexOf('Active');
+    const emailCol = headers.findIndex(h => h.includes('Email'));
+    const nameCol = headers.findIndex(h => h.includes('姓名'));
+    const roleCol = headers.findIndex(h => h.includes('角色') || h.includes('Role'));
+    const deptCol = headers.findIndex(h => h.includes('部門'));
+    const activeCol = headers.findIndex(h => h.includes('狀態') || h.includes('Active'));
 
     let rowIdx = -1;
     for (let i = 1; i < data.length; i++) {
@@ -692,12 +692,12 @@ function saveUser_(payload) {
     } else {
         // Add new
         const newRow = [];
-        headers.forEach(h => {
-            if (h === 'Email') newRow.push(payload.email);
-            else if (h === '姓名') newRow.push(payload.name);
-            else if (h === 'Role') newRow.push(payload.role);
-            else if (h === 'Department') newRow.push(payload.department);
-            else if (h === 'Active') newRow.push(true);
+        headers.forEach((h, i) => {
+            if (i === emailCol) newRow.push(payload.email);
+            else if (i === nameCol) newRow.push(payload.name);
+            else if (i === roleCol) newRow.push(payload.role);
+            else if (i === deptCol) newRow.push(payload.department);
+            else if (i === activeCol) newRow.push(true);
             else newRow.push('');
         });
         sheet.appendRow(newRow);
