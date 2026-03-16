@@ -381,6 +381,8 @@ const app = {
         const isAdmin = app.state.user && app.state.user.role === 'Admin';
         tbody.innerHTML = cases.length ? '' : `<tr><td colspan="7" style="text-align:center; padding:40px;">☕ 尚無案件</td></tr>`;
         cases.forEach(c => {
+            const projInfo = app.state.projects.find(p => p.abbr === c['工程簡稱']);
+            const snLabel = projInfo ? `${projInfo.serial} - ` : '';
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><b>${snLabel}${c['工程簡稱']}</b></td>
