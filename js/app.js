@@ -79,6 +79,7 @@ const app = {
             const res = await api.getPublicCases();
             app.state.cases = res.data.cases || [];
             app.state.projects = res.data.projects || [];
+            app.extractYears();
             app.extractDepartments();
             app.updateStats();
             app.renderView();
@@ -106,6 +107,7 @@ const app = {
             document.getElementById('logoutBtn').classList.remove('hidden');
 
             app.applyRoleRestrictions();
+            app.extractYears();
             app.extractDepartments();
             app.updateStats();
             app.renderView();
@@ -271,12 +273,14 @@ const app = {
     },
 
     getFilteredCases: () => {
+        const yearFilter = document.getElementById('filterYear')?.value || '';
         const deptFilter = document.getElementById('filterDepartment')?.value || '';
         const statusFilter = document.getElementById('filterStatus')?.value || '';
         const keyword = document.getElementById('keywordSearch')?.value.toLowerCase().trim() || '';
         const todayStr = new Date().toISOString().split('T')[0];
 
         return app.state.cases.filter(c => {
+            if (yearFilter && (!c['查核日期'] || !c['查核日期'].startsWith(yearFilter))) return false;
             if (deptFilter && c['主辦部門'] !== deptFilter) return false;
             if (statusFilter && c['辦理狀態'] !== statusFilter) return false;
             
@@ -434,7 +438,11 @@ const app = {
             html += `
                 <div class="cal-day ${isToday?'today':''}">
                     <div class="cal-date">${d}</div>
-                    ${dayCases.map(c => `<div class="cal-event ${c['辦理狀態']==='第4階段-已結案'?'success':''}" onclick="app.openManage('${c.id}')">${c['工程簡稱']}</div>`).join('')}
+                    ${dayCases.map(c => {
+                        const projInfo = app.state.projects.find(p => p.abbr === c['工程簡稱']);
+                        const snLabel = projInfo ? `${projInfo.serial} - ` : '';
+                        return `<div class="cal-event ${c['辦理狀態']==='第4階段-已結案'?'success':''}" onclick="app.openManage('${c.id}')">${snLabel}${c['工程簡稱']}</div>`;
+                    }).join('')}
                 </div>
             `;
         }
@@ -662,7 +670,27 @@ const app = {
     extractDepartments: () => {
         const depts = new Set(app.state.cases.map(c => c['主辦部門']).filter(Boolean));
         const select = document.getElementById('filterDepartment');
-        if (select) { select.innerHTML = '<option value="">全部工作隊</option>'; depts.forEach(d => select.innerHTML += `<option value="${d}">${d}</option>`); }
+        if (select) { 
+            const currentVal = select.value;
+            select.innerHTML = '<option value="">全部工作隊</option>'; 
+            depts.forEach(d => select.innerHTML += `<option value="${d}">${d}</option>`); 
+            if (currentVal) select.value = currentVal;
+        }
+    },
+    extractYears: () => {
+        const years = new Set(app.state.cases.map(c => c['查核日期'] ? c['查核日期'].substring(0, 4) : null).filter(Boolean));
+        const select = document.getElementById('filterYear');
+        if (select) {
+            const currentYear = new Date().getFullYear().toString();
+            select.innerHTML = '<option value="">全部年度</option>';
+            Array.from(years).sort((a,b) => b-a).forEach(y => {
+                select.innerHTML += `<option value="${y}">${y} 年度</option>`;
+            });
+            // 預設為今年
+            if (years.has(currentYear)) {
+                select.value = currentYear;
+            }
+        }
     },
     setQuickFilter: (type) => { app.state.quickFilter = type; if (app.state.currentView !== 'cases') app.toggleView('cases'); app.renderView(); },
     showLoading: (show) => { const l = document.getElementById('loading'); if(l) show ? l.classList.remove('hidden') : l.classList.add('hidden'); },

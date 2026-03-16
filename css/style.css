@@ -437,6 +437,25 @@ input:focus, select:focus, textarea:focus {
     box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
 }
 
+/* 檔案上傳輸入框優化 */
+input[type="file"] {
+    background: rgba(0,0,0,0.05);
+    border: 1px dashed var(--border);
+    cursor: pointer;
+    width: 100%;
+}
+[data-theme="light"] input[type="file"] { background: #f1f5f9; }
+input[type="file"]::-webkit-file-upload-button {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    color: var(--text-main);
+    cursor: pointer;
+    margin-right: 10px;
+}
+input[type="file"]:hover { border-color: var(--primary); }
+
 /* 表格優化 */
 .card-table-wrapper {
     background: var(--bg-card);
