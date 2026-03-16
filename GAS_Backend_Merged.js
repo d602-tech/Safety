@@ -18,6 +18,7 @@ const SHEET_TEMPLATES = '範例檔案';
 const SHEET_SYSTEM_SETTINGS = '系統設定';
 const SHEET_ANNUAL_PLAN = '年度計畫';
 const SHEET_DEFICIENCY_DB = '缺失清單';
+const SHEET_USER_PERMISSIONS = '使用者權限';
 
 const STATUS = {
   STAGE1: '第1階段-已登錄',
