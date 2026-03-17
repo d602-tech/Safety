@@ -142,6 +142,10 @@ function doPost(e) {
         result = manualRemindNotifications();
         break;
 
+      case 'batch_add_deficiencies':
+        result = batchAddDeficiencies_(payload, roleData.email);
+        break;
+
       case 'save_user':
         if(roleData.role !== 'Admin') {
             throw new Error("使用者管理僅限管理員。");
@@ -639,6 +643,25 @@ function updateDeficiency_(p, email) {
     sheet.appendRow([newId, p.caseId, p.abbr, p.content, p.department, p.deadline, '待改善', email]);
   }
   return { success: true };
+}
+
+function batchAddDeficiencies_(payload, email) {
+  try {
+    const sheet = getOrCreateDeficiencySheet_();
+    const { items } = payload;
+    if (!items || !items.length) throw new Error("無缺失明細");
+
+    const now = new Date().getTime();
+    const rows = items.map((item, idx) => {
+      const newId = 'DEF' + (now + idx);
+      return [newId, item.caseId, item.abbr, item.content, item.department, item.deadline, '待改善', email];
+    });
+
+    sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+    return { success: true, message: `已成功匯入 ${rows.length} 項缺失` };
+  } catch (e) {
+    throw new Error("批次新增缺失失敗: " + e.message);
+  }
 }
 
 function deleteDeficiency_(id) {

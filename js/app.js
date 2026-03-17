@@ -480,7 +480,11 @@ const app = {
         app.openModal('新增缺失紀錄', `
             <div style="display:flex;flex-direction:column;gap:15px;">
                 <div><label>工程：</label> <b>${abbr}</b></div>
-                <div><label>缺失描述：</label><textarea id="defContent" style="width:100%;height:80px;"></textarea></div>
+                <div>
+                    <label>缺失描述：</label>
+                    <textarea id="defContent" style="width:100%;height:120px;" placeholder="輸入一項缺失。如有多項，請換行輸入（每一行將自動轉為一筆獨立缺失項目）。"></textarea>
+                    <small style="color:var(--text-muted); display:block; margin-top:4px;"><i class="fas fa-info-circle"></i> 換行即為一項，支援批次輸入。</small>
+                </div>
                 <div><label>改善期限：</label><input type="date" id="defDeadline" value="${new Date().toISOString().split('T')[0]}"></div>
                 <div><label>負責部門：</label><input type="text" id="defDept" value="${dept}"></div>
                 <button class="btn btn-primary" onclick="app.submitDeficiency('${caseId}', '${abbr}')">確認存檔</button>
@@ -488,19 +492,31 @@ const app = {
         `);
     },
     submitDeficiency: async (caseId, abbr) => {
-        const content = document.getElementById('defContent').value.trim();
+        const contentRaw = document.getElementById('defContent').value.trim();
         const deadline = document.getElementById('defDeadline').value;
         const department = document.getElementById('defDept').value.trim();
 
-        if (!content || !deadline || !department) return app.showToast("請填寫所有欄位", "error");
+        if (!contentRaw || !deadline || !department) return app.showToast("請填寫所有欄位", "error");
 
+        const lines = contentRaw.split('\n').map(l => l.trim()).filter(l => l !== '');
+        
         app.setModalLoading(true);
-        const p = { caseId, abbr, content, deadline, department, status: '待改善' };
         try { 
-            await api.updateDeficiency(p); 
+            if (lines.length > 1) {
+                // Batch add
+                const items = lines.map(line => ({
+                    caseId, abbr, content: line, deadline, department, status: '待改善'
+                }));
+                await api.batchAddDeficiencies(items);
+                app.showToast(`✅ 已批次新增 ${lines.length} 項缺失`);
+            } else {
+                // Single add
+                const p = { caseId, abbr, content: lines[0], deadline, department, status: '待改善' };
+                await api.updateDeficiency(p); 
+                app.showToast("✅ 已新增缺失"); 
+            }
             app.fetchDeficiencies(); 
             app.closeModal(); 
-            app.showToast("✅ 已新增缺失"); 
         } catch(e) { 
             app.showToast(e.message, "error"); 
         } finally {
@@ -875,6 +891,106 @@ const app = {
         } finally {
             if (btn) btn.disabled = false;
         }
+    },
+    openReportModal: () => {
+        const projects = app.state.projects;
+        const projectOptions = projects.map(p => `<option value="${p.abbr}">${p.abbr}</option>`).join('');
+        const now = new Date();
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
+        app.openModal('生成查核統計報告', `
+            <div style="display:flex; flex-direction:column; gap:15px;">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <div><label>起始日期：</label><input type="date" id="reportStart" value="${firstDay}"></div>
+                    <div><label>結束日期：</label><input type="date" id="reportEnd" value="${lastDay}"></div>
+                </div>
+                <div>
+                    <label>篩選工程：</label>
+                    <select id="reportProj" style="width:100%">
+                        <option value="">-- 全部工程 --</option>
+                        ${projectOptions}
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="app.runReport()">查詢並生成報告</button>
+                <div id="reportResult" class="hidden" style="margin-top:15px; border-top:1px solid var(--border); padding-top:15px;">
+                    <div id="reportSummary" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;"></div>
+                    <div id="reportDetail" style="max-height:300px; overflow-y:auto; font-size:0.85rem;"></div>
+                    <button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="app.printReport()">列印報告 / 導出 PDF</button>
+                </div>
+            </div>
+        `);
+    },
+    runReport: () => {
+        const start = document.getElementById('reportStart').value;
+        const end = document.getElementById('reportEnd').value;
+        const projAbbr = document.getElementById('reportProj').value;
+
+        const filteredCases = app.state.cases.filter(c => {
+            const date = c['查核日期'];
+            if (!date) return false;
+            const isDateMatch = date >= start && date <= end;
+            const isProjMatch = projAbbr === '' || c['工程簡稱'] === projAbbr;
+            return isDateMatch && isProjMatch;
+        });
+
+        const caseIds = filteredCases.map(c => c.id);
+        const filteredDefs = app.state.deficiencies.filter(d => caseIds.includes(d.caseId));
+
+        const summaryBox = document.getElementById('reportSummary');
+        summaryBox.innerHTML = `
+            <div style="padding:10px; background:rgba(99,102,241,0.1); border-radius:8px; text-align:center;">
+                <div style="font-size:0.75rem; color:var(--text-muted);">查核次數</div>
+                <div style="font-size:1.5rem; font-weight:800; color:var(--primary);">${filteredCases.length}</div>
+            </div>
+            <div style="padding:10px; background:rgba(245,158,11,0.1); border-radius:8px; text-align:center;">
+                <div style="font-size:0.75rem; color:var(--text-muted);">總缺失數</div>
+                <div style="font-size:1.5rem; font-weight:800; color:var(--warning);">${filteredDefs.length}</div>
+            </div>
+        `;
+
+        const detailBox = document.getElementById('reportDetail');
+        if (filteredCases.length === 0) {
+            detailBox.innerHTML = '<p style="text-align:center;">此區間無資料</p>';
+        } else {
+            let html = '<table style="width:100%; border-collapse:collapse;">';
+            html += '<thead style="background:var(--bg-input);"><tr><th style="text-align:left; padding:5px;">日期</th><th style="text-align:left; padding:5px;">工程</th><th style="text-align:right; padding:5px;">缺失數</th></tr></thead><tbody>';
+            filteredCases.forEach(c => {
+                const defCount = filteredDefs.filter(d => d.caseId === c.id).length;
+                html += `<tr style="border-bottom:1px solid var(--border);"><td style="padding:5px;">${c['查核日期']}</td><td style="padding:5px;">${c['工程簡稱']}</td><td style="text-align:right; padding:5px;">${defCount}</td></tr>`;
+            });
+            html += '</tbody></table>';
+            detailBox.innerHTML = html;
+        }
+
+        document.getElementById('reportResult').classList.remove('hidden');
+    },
+    printReport: () => {
+        const start = document.getElementById('reportStart').value;
+        const end = document.getElementById('reportEnd').value;
+        const summary = document.getElementById('reportSummary').innerHTML;
+        const detail = document.getElementById('reportDetail').innerHTML;
+        const win = window.open('', '_blank');
+        win.document.write(`
+            <html><head><title>工安查核統計報告</title>
+            <style>
+                body { font-family: sans-serif; padding: 40px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+                th { background: #f4f4f4; }
+                .header { text-align: center; margin-bottom: 30px; }
+            </style>
+            </head><body>
+            <div class="header">
+                <h2>工安查核統計報告</h2>
+                <p>查詢區間：${start} ~ ${end}</p>
+            </div>
+            <div style="display:flex; gap:20px; justify-content:center; margin-bottom:20px;">${summary}</div>
+            ${detail}
+            <script>window.print();<\/script>
+            </body></html>
+        `);
+        win.document.close();
     }
 };
 
