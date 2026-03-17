@@ -17,6 +17,7 @@
         <div class="logo"><i class="fas fa-shield-alt"></i> 工安查核管理系統 <span>v5.2</span></div>
         <div class="nav-actions">
             <!-- 主題切換 -->
+            <button class="btn btn-primary btn-round" style="margin-right: 10px;" onclick="app.openBlankFormsModal()"><i class="fas fa-file-download"></i> 空白表單下載</button>
             <select id="themeSelector" class="theme-selector" onchange="app.setTheme(this.value)">
                 <option value="dark">🌑 暗色模式</option>
                 <option value="light">☀️ 亮色模式</option>
@@ -130,7 +131,6 @@
             </div>
             <div class="toolbar-right">
                 <div class="utility-group">
-                    <button class="btn btn-outline btn-round" onclick="app.openBlankFormsModal()"><i class="fas fa-file-download"></i> 表單下載</button>
                     <button class="btn btn-outline btn-round" onclick="app.openReportModal()"><i class="fas fa-file-alt"></i> 生成報告</button>
                     <button class="btn btn-outline btn-round" onclick="app.exportToCSV()"><i class="fas fa-file-export"></i> 匯出</button>
                     <button class="btn btn-outline btn-round" onclick="app.downloadExample()"><i class="fas fa-download"></i> 範例</button>

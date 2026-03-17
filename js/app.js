@@ -1099,36 +1099,57 @@ const app = {
         }
     },
     openBlankFormsModal: () => {
-        const forms = [
-            { name: "1. 承攬商工安查核紀錄表", id: "1Ld3Kpbdb7iKEb7jaRa6wTE-k7UX-ACw_" },
-            { name: "2. 承攬商工安查核紀錄表，附件3承攬商外籍移工工作管理抽查表", id: "1G9dgYKIhSIZtgC9NK-H1lK6irvCQveJg" },
-            { name: "3. 承攬商工安查核紀錄表，附件4防颱整備聯繫支援督導表項目檢查結果一覽表【每年5~11月必填】", id: "1-GN-OqB59cEKEd0SJ1ghcwkcFtwuXNY0" },
-            { name: "4. 自辦監造員工工安查核紀錄表", id: "1xFH7fxaR69GYnyEwK73KLH9TcjucdQ9O" },
-            { name: "5. 委外監造員工工安查核紀錄表", id: "12kXyBDtAddQYPzaGnKtZH2ZfOjWGxiCS" }
+        const categories = [
+            {
+                title: "🏢 承攬商相關表單",
+                forms: [
+                    { name: "1. 承攬商工安查核紀錄表", id: "1Ld3Kpbdb7iKEb7jaRa6wTE-k7UX-ACw_" },
+                    { name: "2. 附件3：承攬商外籍移工工作管理抽查表", id: "1G9dgYKIhSIZtgC9NK-H1lK6irvCQveJg" },
+                    { name: "3. 附件4：防颱整備聯繫支援督導表 【每年5~11月必填】", id: "1-GN-OqB59cEKEd0SJ1ghcwkcFtwuXNY0" }
+                ]
+            },
+            {
+                title: "👷 自辦監造相關表單",
+                forms: [
+                    { name: "4. 自辦監造員工工安查核紀錄表", id: "1xFH7fxaR69GYnyEwK73KLH9TcjucdQ9O" }
+                ]
+            },
+            {
+                title: "🤝 委外監造相關表單",
+                forms: [
+                    { name: "5. 委外監造員工工安查核紀錄表", id: "12kXyBDtAddQYPzaGnKtZH2ZfOjWGxiCS" }
+                ]
+            }
         ];
 
         let html = `
             <div style="background:rgba(99,102,241,0.05); padding:15px; border-radius:12px; border:1px dashed var(--primary); margin-bottom:20px; font-size:0.85rem;">
-                <i class="fas fa-info-circle"></i> <b>下載說明：</b><br>
+                <i class="fas fa-info-circle"></i> <b>空白表單下載說明：</b><br>
                 點擊下方連結將直接下載為 <b>Word (.docx)</b> 格式。表單僅限下載使用，不支援線上編輯，以確保版面格式正確。
             </div>
-            <div style="display:flex; flex-direction:column; gap:12px;">
         `;
 
-        forms.forEach(f => {
+        categories.forEach(cat => {
             html += `
-                <a href="https://docs.google.com/document/d/${f.id}/export?format=docx" 
-                   class="btn btn-outline" 
-                   style="justify-content:space-between; padding:15px 20px; text-decoration:none; color:var(--text-main);" 
-                   target="_blank" 
-                   title="點擊下載 Word 檔">
-                    <span style="flex:1; text-align:left; font-size:0.9rem;">${f.name}</span>
-                    <i class="fas fa-download" style="color:var(--primary); margin-left:15px;"></i>
-                </a>
+                <div style="margin-bottom:20px;">
+                    <div style="font-weight:700; color:var(--primary); margin-bottom:10px; padding-left:5px; border-left:4px solid var(--primary);">${cat.title}</div>
+                    <div style="display:flex; flex-direction:column; gap:8px;">
             `;
+            cat.forms.forEach(f => {
+                html += `
+                    <a href="https://docs.google.com/document/d/${f.id}/export?format=docx" 
+                       class="btn btn-outline" 
+                       style="justify-content:space-between; padding:12px 15px; text-decoration:none; color:var(--text-main); background:var(--bg-card); border-color:rgba(0,0,0,0.05);" 
+                       target="_blank" 
+                       title="點擊下載 Word 檔">
+                        <span style="flex:1; text-align:left; font-size:0.85rem;">${f.name}</span>
+                        <i class="fas fa-download" style="color:var(--primary); margin-left:15px; font-size:0.8rem;"></i>
+                    </a>
+                `;
+            });
+            html += `</div></div>`;
         });
 
-        html += `</div>`;
         app.openModal('空白表單下載區', html);
     },
 
