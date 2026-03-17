@@ -111,9 +111,16 @@
                 </div>
                 <div class="view-switch-wrapper">
                     <div class="view-switch">
-                        <button id="viewGridBtn" class="switch-btn active" onclick="app.toggleViewMode('grid')"><i class="fas fa-th-large"></i></button>
-                        <button id="viewListBtn" class="switch-btn" onclick="app.toggleViewMode('list')"><i class="fas fa-list"></i></button>
-                        <button id="viewCalBtn" class="switch-btn" onclick="app.toggleViewMode('calendar')"><i class="fas fa-calendar-alt"></i></button>
+                        <button id="viewGridBtn" class="switch-btn active" onclick="app.toggleViewMode('grid')" title="網格視圖"><i class="fas fa-th-large"></i></button>
+                        <button id="viewListBtn" class="switch-btn" onclick="app.toggleViewMode('list')" title="列表視圖"><i class="fas fa-list"></i></button>
+                        <button id="viewCalBtn" class="switch-btn" onclick="app.toggleViewMode('calendar')" title="日曆視圖"><i class="fas fa-calendar-alt"></i></button>
+                    </div>
+                </div>
+                <!-- 系統模式切換 -->
+                <div class="mode-switch-wrapper">
+                    <div class="mode-switch">
+                        <button id="modeReportBtn" class="mode-btn active" onclick="app.setSystemMode('progress')"><i class="fas fa-chart-line"></i> 報告進度</button>
+                        <button id="modeDefBtn" class="mode-btn" onclick="app.setSystemMode('tracking')"><i class="fas fa-bullseye"></i> 缺失追蹤</button>
                     </div>
                 </div>
                 <div class="search-wrapper">
@@ -176,6 +183,9 @@
 
             <!-- 缺失清單視圖 -->
             <div id="viewDeficiencies" class="card-table-wrapper hidden">
+                <div style="padding: 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px;">
+                    <button class="btn btn-primary" onclick="app.openGlobalBatchAddModal()"><i class="fas fa-plus-circle"></i> 批次新增缺失</button>
+                </div>
                 <table class="case-table">
                     <thead>
                         <tr>

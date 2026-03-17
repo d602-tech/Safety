@@ -16,7 +16,8 @@ const app = {
         quickFilter: 'all',
         theme: localStorage.getItem('theme') || 'light',
         calDate: new Date(),
-        searchKeyword: ''
+        searchKeyword: '',
+        systemMode: localStorage.getItem('systemMode') || 'progress' // progress, tracking
     },
 
     /** ======================== 全域通知與顯示 ======================== */
@@ -62,6 +63,10 @@ const app = {
             client_id: GOOGLE_CLIENT_ID,
             callback: app.handleCredentialResponse
         });
+        
+        // 初始化模式按鈕狀態
+        app.setSystemMode(app.state.systemMode);
+
         google.accounts.id.renderButton(
             document.getElementById("googleLoginBtn"),
             { theme: app.state.theme === 'light' ? 'outline' : 'filled_blue', size: "large", shape: "pill" }
@@ -197,6 +202,24 @@ const app = {
         if (app.state.currentView === 'cases') app.renderView();
     },
 
+    setSystemMode: (mode) => {
+        app.state.systemMode = mode;
+        localStorage.setItem('systemMode', mode);
+        
+        const btnReport = document.getElementById('modeReportBtn');
+        const btnDef = document.getElementById('modeDefBtn');
+        
+        if (mode === 'progress') {
+            btnReport?.classList.add('active');
+            btnDef?.classList.remove('active');
+        } else {
+            btnReport?.classList.remove('active');
+            btnDef?.classList.add('active');
+        }
+        
+        app.renderView();
+    },
+
     toggleView: (view) => {
         app.state.currentView = view;
         const mainViews = {
@@ -238,6 +261,29 @@ const app = {
         if (app.state.viewMode === 'grid') app.renderGrid(filtered);
         else if (app.state.viewMode === 'list') app.renderList(filtered);
         else if (app.state.viewMode === 'calendar') app.renderCalendar(filtered);
+    },
+
+    /** 取得案件 S1-S4 進度條 HTML */
+    getProgressHtml: (c) => {
+        const s2 = !!c['第2階段連結'];
+        const s3 = !!c['第3階段連結'];
+        const s4 = !!c['第4階段連結'];
+        const isClosed = c['辦理狀態'] === '第4階段-已結案';
+
+        return `
+            <div class="progress-container">
+                <div class="progress-label">
+                    <span>階段進度</span>
+                    <span>${isClosed ? '100%' : (s4 ? '75%' : (s3 ? '50%' : (s2 ? '25%' : '0%')))}</span>
+                </div>
+                <div class="progress-track">
+                    <div class="progress-step step-s1 active" title="S1: 已登錄"></div>
+                    <div class="progress-step step-s2 ${s2 || s3 || s4 ? 'active' : ''}" title="S2: 改善單"></div>
+                    <div class="progress-step step-s3 ${s3 || s4 ? 'active' : ''}" title="S3: 核章版"></div>
+                    <div class="progress-step step-s4 ${s4 || isClosed ? 'active' : ''}" title="S4: 結案版"></div>
+                </div>
+            </div>
+        `;
     },
 
     /** 取得案件的檔案狀態 HTML (包含圖示與下載連結) */
@@ -355,7 +401,7 @@ const app = {
             card.setAttribute('data-dept', c['主辦部門'] || '');
             card.innerHTML = `
                 <div class="card-header">
-                    <h4>${snLabel}${c['工程簡稱']}</h4>
+                    <h4 class="report-clickable" onclick="app.openManage('${c.id}')">${snLabel}${c['工程簡稱']}</h4>
                     <span class="badge ${isOverdue ? 'warning' : (isClosed ? 'success' : 'badge-status')}">${c['辦理狀態']}</span>
                 </div>
                 <div class="card-body">
@@ -363,13 +409,18 @@ const app = {
                     <div class="info-row"><i class="fas fa-hard-hat"></i> ${c['承攬商']}</div>
                     <div class="info-row"><i class="fas fa-calendar-alt"></i> 查核：${c['查核日期']}</div>
                     <div class="info-row" style="${isOverdue ? 'color:var(--warning);font-weight:700;' : ''}"><i class="fas fa-clock"></i> 限辦：${c['最晚應核章日期']}</div>
+                    
+                    ${app.state.systemMode === 'progress' ? app.getProgressHtml(c) : `
+                        <div style="margin-top:10px; padding:10px; background:rgba(0,0,0,0.03); border-radius:10px; font-size:0.8rem;">
+                            <i class="fas fa-exclamation-circle" style="color:var(--primary);"></i> 缺失數：${app.state.deficiencies.filter(d => d.caseId === c.id).length}
+                        </div>
+                    `}
                 </div>
                 <div class="card-footer">
                     <button class="btn btn-primary" onclick="app.openManage('${c.id}')">管理</button>
                     <button class="btn btn-outline" onclick="app.viewHistory('${c.id}')"><i class="fas fa-history"></i></button>
                     ${isAdmin ? `<button class="btn btn-outline" style="color:var(--warning); border-color:var(--warning);" onclick="app.deleteCase('${c.id}')"><i class="fas fa-trash"></i></button>` : ''}
                 </div>
-                <!-- 檔案狀態指示器 (原本為 Admin 專用改為公開狀態顯示) -->
                 <div style="padding: 12px 24px; border-top: 1px dashed var(--border);">
                     ${app.getFileStatusHtml(c)}
                 </div>
@@ -394,7 +445,10 @@ const app = {
                 <td>${c['主辦部門']}</td>
                 <td>${c['查核日期']}</td>
                 <td>${c['最晚應核章日期']}</td>
-                <td>${app.getFileStatusHtml(c)}</td>
+                <td>
+                    ${app.getFileStatusHtml(c)}
+                    ${app.getProgressHtml(c)}
+                </td>
                 <td><span class="badge ${c['辦理狀態'] === '第4階段-已結案' ? 'success' : 'badge-status'}">${c['辦理狀態']}</span></td>
                 <td>
                     <div style="display:flex; gap:5px;">
@@ -811,13 +865,106 @@ const app = {
         }
         listDiv.innerHTML = defs.map(d => `
             <div style="padding:10px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
-                <div style="font-size:0.8rem;">
-                    <div style="font-weight:700;">${d.content}</div>
-                    <div style="color:var(--text-muted); font-size:0.75rem;">期限：${d.deadline} | 狀態：<span style="color:${d.status==='已改善'?'var(--success)':'var(--warning)'}">${d.status}</span></div>
+                <div style="font-size:0.8rem; flex:1;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <span style="font-weight:700;">${d.content}</span>
+                        <span class="def-dept-tag">${d.department}</span>
+                    </div>
+                    <div style="color:var(--text-muted); font-size:0.75rem; margin-top:4px;">
+                        期限：${d.deadline} | 狀態：<span style="color:${d.status === '已改善' ? 'var(--success)' : 'var(--warning)'}">${d.status}</span>
+                    </div>
                 </div>
-                ${app.state.user.role === 'Admin' ? `<button class="btn" onclick="app.deleteDeficiency('${d.id}'); setTimeout(()=>app.renderCaseDeficiencies('${caseId}'), 1000);" style="padding:4px; color:var(--warning); background:none;"><i class="fas fa-trash"></i></button>` : ''}
+                <div style="display:flex; gap:4px;">
+                    <button class="btn" onclick="app.openEditDef('${d.id}')" style="padding:4px; color:var(--primary); background:none;"><i class="fas fa-edit"></i></button>
+                    ${app.state.user.role === 'Admin' ? `<button class="btn" onclick="app.deleteDeficiency('${d.id}'); setTimeout(()=>app.renderCaseDeficiencies('${caseId}'), 1000);" style="padding:4px; color:var(--warning); background:none;"><i class="fas fa-trash"></i></button>` : ''}
+                </div>
             </div>
         `).join('');
+    },
+    openEditDef: (id) => {
+        const d = app.state.deficiencies.find(item => item.id == id);
+        if (!d) return;
+        
+        app.openModal('編輯缺失紀錄', `
+            <div style="display:flex; flex-direction:column; gap:15px;">
+                <div><label>工程：</label> <b>${d.abbr}</b></div>
+                <div><label>缺失內容：</label><textarea id="editDefContent" style="width:100%; height:100px;">${d.content}</textarea></div>
+                <div><label>改善期限：</label><input type="date" id="editDefDeadline" value="${d.deadline}"></div>
+                <div><label>主辦部門：</label><input type="text" id="editDefDept" value="${d.department}"></div>
+                <div><label>狀態：</label>
+                    <select id="editDefStatus">
+                        <option value="待改善" ${d.status === '待改善' ? 'selected' : ''}>待改善</option>
+                        <option value="已改善" ${d.status === '已改善' ? 'selected' : ''}>已改善</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="app.submitEditDef('${id}', '${d.caseId}')">儲存修改</button>
+            </div>
+        `);
+    },
+    submitEditDef: async (id, caseId) => {
+        const content = document.getElementById('editDefContent').value.trim();
+        const deadline = document.getElementById('editDefDeadline').value;
+        const department = document.getElementById('editDefDept').value.trim();
+        const status = document.getElementById('editDefStatus').value;
+
+        if (!content || !deadline || !department) return app.showToast("請填寫所有欄位", "error");
+
+        app.setModalLoading(true);
+        try {
+            await api.updateDeficiency({ id, content, deadline, department, status });
+            app.showToast("✅ 修改成功");
+            await app.fetchDeficiencies();
+            app.closeModal();
+            // 如果是在案件管理開啟的，重新渲染該案件的缺失
+            app.openManage(caseId); 
+        } catch(e) { app.showToast(e.message, "error"); } finally { app.setModalLoading(false); }
+    },
+    openGlobalBatchAddModal: () => {
+        // 全域批次新增：需選擇工程
+        let options = app.state.cases.filter(c => c['辦理狀態'] !== '第4階段-已結案')
+            .map(c => `<option value="${c.id}">${c['工程簡稱']} (${c['查核日期']})</option>`).join('');
+        
+        if (!options) return app.showToast("目前沒有進行中的案件可供新增缺失", "warning");
+
+        app.openModal('全域批次新增缺失', `
+            <div style="display:flex; flex-direction:column; gap:15px;">
+                <div>
+                    <label>選擇案件：</label>
+                    <select id="globalBatchCase" style="width:100%">${options}</select>
+                </div>
+                <div>
+                    <label>缺失內容 (每一行一筆)：</label>
+                    <textarea id="globalBatchContent" style="width:100%; height:150px;" placeholder="請輸入缺失內容..."></textarea>
+                </div>
+                <div>
+                    <label>改善期限：</label>
+                    <input type="date" id="globalBatchDeadline" value="${new Date().toISOString().split('T')[0]}">
+                </div>
+                <button class="btn btn-primary" onclick="app.submitGlobalBatch()">確認批次新增</button>
+            </div>
+        `);
+    },
+    submitGlobalBatch: async () => {
+        const caseId = document.getElementById('globalBatchCase').value;
+        const contentRaw = document.getElementById('globalBatchContent').value.trim();
+        const deadline = document.getElementById('globalBatchDeadline').value;
+        
+        if (!contentRaw || !deadline) return app.showToast("請填寫內容與期限", "error");
+        
+        const c = app.state.cases.find(item => item.id == caseId);
+        const lines = contentRaw.split('\n').map(l => l.trim()).filter(l => l !== '');
+        
+        app.setModalLoading(true);
+        try {
+            const items = lines.map(line => ({ 
+                caseId, abbr: c['工程簡稱'], content: line, deadline, department: c['主辦部門'], status: '待改善' 
+            }));
+            await api.batchAddDeficiencies(items);
+            app.showToast(`✅ 已新增 ${lines.length} 筆缺失`);
+            await app.fetchDeficiencies();
+            app.closeModal();
+            app.renderView();
+        } catch(e) { app.showToast(e.message, "error"); } finally { app.setModalLoading(false); }
     },
     submitDeficiencyFromCase: async (caseId, abbr, dept) => {
         const contentRaw = document.getElementById('caseDefContent').value.trim();
@@ -1009,8 +1156,8 @@ const app = {
             const isProjMatch = projAbbr === '' || c['工程簡稱'] === projAbbr;
             
             let isStatusMatch = true;
-            if (statusFilter === '已結案') isStatusMatch = c['辦辦狀態'] === '第4階段-已結案';
-            if (statusFilter === '進行中') isStatusMatch = c['辦辦狀態'] !== '第4階段-已結案';
+            if (statusFilter === '已結案') isStatusMatch = c['辦理狀態'] === '第4階段-已結案';
+            if (statusFilter === '進行中') isStatusMatch = c['辦理狀態'] !== '第4階段-已結案';
 
             return isDateMatch && isProjMatch && isStatusMatch;
         });
@@ -1046,7 +1193,9 @@ const app = {
                 const caseDefs = filteredDefs.filter(d => d.caseId === c.id);
                 const defsHtml = caseDefs.map(d => `• ${d.content}`).join('<br>');
                 html += `<tr style="border-bottom:1px solid var(--border); vertical-align:top;">
-                    <td style="padding:8px; white-space:nowrap;"><b>${c['查核日期']}</b><br>${c['工程簡稱']}</td>
+                    <td style="padding:8px; white-space:nowrap;" class="report-clickable" onclick="app.openManage('${c.id}')">
+                        <b>${c['查核日期']}</b><br>${c['工程簡稱']}
+                    </td>
                     <td style="padding:8px;">${defsHtml || '<span style="color:var(--text-muted);">無符合關鍵字缺失</span>'}</td>
                 </tr>`;
             });
