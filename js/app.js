@@ -836,38 +836,40 @@ const app = {
         `;
 
         if (isLite) {
-            // DepartmentUploader 的簡易任務導向介面
+            // DepartmentUploader 的高階大畫面任務導向介面
             let liteHtml = `
                 <div class="lite-flow-container">
-                    <div style="padding:12px; background:rgba(99,102,241,0.05); border-radius:12px; border:1px solid var(--border); font-size:0.85rem; margin-bottom:10px;">
-                        案件：<b>${c['工程簡稱']}</b> | 狀態：<b style="color:var(--primary);">${c['辦理狀態']}</b>
+                    <div class="lite-date-hero">
+                        <div class="label"><i class="fas fa-calendar-check"></i> 查核日期</div>
+                        <div class="value">${c['查核日期']}</div>
+                        <div style="font-size:0.9rem; opacity:0.8; margin-top:8px;">工程：<b>${c['工程簡稱']}</b></div>
                     </div>
                     
                     <div class="lite-step-card ${c['第2階段連結'] ? 'active' : ''}">
-                        <span class="step-badge">任務 1</span>
-                        <h4><i class="fas fa-download"></i> 下載第 2 階段原始單</h4>
-                        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">請下載工安組上傳之原始文件進行後續複核。成果歸檔請參考下方路徑。</p>
+                        <span class="step-badge">步驟 1</span>
+                        <h4><i class="fas fa-file-word"></i> 下載第 2 階段原始單</h4>
+                        <p>工安組已完成初勘登錄。請點擊上方按鈕下載 Word 格式原始單，進行後續改善複核作業。</p>
                         ${c['第2階段連結'] ? 
-                            `<a href="${c['第2階段連結']}" target="_blank" class="btn btn-primary" style="width:100%; justify-content:center;"><i class="fas fa-file-download"></i> 立即下載原始單</a>` : 
-                            `<div style="color:var(--warning); font-size:0.8rem; text-align:center;"><i class="fas fa-clock"></i> 工安組尚未上傳原始單</div>`
+                            `<a href="${c['第2階段連結']}" target="_blank" class="btn btn-primary" style="width:100%; height:60px; font-size:1.1rem; justify-content:center; border-radius:15px;"><i class="fas fa-download"></i> 立即下載原始單 Word</a>` : 
+                            `<div style="color:var(--warning); background:rgba(244,63,94,0.05); padding:15px; border-radius:12px; text-align:center; border:1px dashed var(--warning);"><i class="fas fa-clock"></i> 工安組作業中，尚未上傳原始單</div>`
                         }
                     </div>
 
                     <div class="lite-step-card ${(c['辦理狀態'] === '第2階段-改善單已上傳' || c['辦理狀態'] === '第3階段-工作隊版已處理') ? 'active' : ''}">
-                        <span class="step-badge">任務 2</span>
-                        <h4><i class="fas fa-upload"></i> 上傳第 3 階段核章版</h4>
-                        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">完成核章後，請在此上傳掃描檔。狀態必須為「第2階段」才可上傳。</p>
+                        <span class="step-badge">步驟 2</span>
+                        <h4><i class="fas fa-file-pdf"></i> 上傳第 3 階段核章版</h4>
+                        <p>完成現場改善並核章後，請將掃描後的 PDF 檔案在此回傳。系統將自動通知工安組結案。</p>
                         ${(c['辦理狀態'] === '第2階段-改善單已上傳' || (c['辦理狀態'] === '第3階段-工作隊版已處理' && isDeptOwner)) ? 
-                            app.getUploadSection(id, 'stage3', '上傳核章版 PDF', '#fbbf24', '', !!c['第3階段連結']) : 
-                            `<div style="color:var(--text-muted); font-size:0.8rem; text-align:center; padding:10px; border:1px dashed var(--border); border-radius:8px;">階段未達或已完成，目前不需上傳</div>`
+                            app.getUploadSection(id, 'stage3', '立即上傳核章版 PDF', '#fbbf24', '', !!c['第3階段連結']) : 
+                            `<div style="color:var(--text-muted); background:rgba(0,0,0,0.03); padding:15px; border-radius:12px; text-align:center; border:1px dashed var(--border);"><i class="fas fa-lock"></i> 目前尚未開放上傳 (需先完成步驟 1)</div>`
                         }
                     </div>
 
                     ${archivingHtml}
-                    <button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="app.viewHistory('${id}')"><i class="fas fa-history"></i> 查看歷史紀錄</button>
+                    <button class="btn btn-outline" style="width:100%; margin-top:10px; height:50px; justify-content:center;" onclick="app.viewHistory('${id}')"><i class="fas fa-history"></i> 查看此案件歷史紀錄</button>
                 </div>
             `;
-            app.openModal('任務導向管理 - 傳辦人員專用', liteHtml);
+            app.openModal('傳辦人員作業中心', liteHtml);
         } else {
             // Admin / SafetyUploader 的完整管理介面
             let html = `
