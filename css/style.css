@@ -625,3 +625,56 @@ input[type="file"]:hover { border-color: var(--primary); }
 [viewDeficiencies] .case-table {
     min-width: 700px;
 }
+/* 案件管理分頁樣式 */
+.tabs-header {
+    display: flex;
+    gap: 10px;
+    margin: -10px -10px 20px -10px;
+    padding: 0 10px 10px 10px;
+    border-bottom: 1px solid var(--border);
+}
+
+.tab-btn {
+    padding: 10px 20px;
+    border-radius: 12px 12px 0 0;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-weight: 700;
+    cursor: pointer;
+    transition: var(--transition);
+    border-bottom: 3px solid transparent;
+}
+
+.tab-btn:hover {
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.tab-btn.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    background: rgba(99, 102, 241, 0.05);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* 報告模態框優化 */
+.report-field-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+@media (max-width: 480px) {
+    .report-field-group {
+        grid-template-columns: 1fr;
+    }
+}

@@ -718,67 +718,126 @@ const app = {
         const c = app.state.cases.find(item => item.id == id);
         if (!c) return;
         
-        // 流程說明區塊
-        let content = `
-            <div style="margin-bottom:20px; padding:15px; background:rgba(99,102,241,0.05); border-radius:14px; font-size:0.85rem; line-height:1.6; border:1px solid rgba(99,102,241,0.1);">
-                <div style="font-weight:800; color:var(--primary); margin-bottom:8px;"><i class="fas fa-info-circle"></i> 案件辦理流程說明</div>
-                <div style="display:grid; grid-template-columns:auto 1fr; gap:5px 12px;">
-                    <b style="color:var(--warning);">S2:</b> <span>原始工安紀錄及改善清單 (查核人員上傳)</span>
-                    <b style="color:var(--info);">S3:</b> <span>部門改善核章版 (受查部門上傳)</span>
-                    <b style="color:var(--success);">S4:</b> <span>結案完成版 (工安組上傳)</span>
-                </div>
-            </div>
-            <div style="margin-bottom:20px; padding:15px; background:rgba(0,120,255,0.05); border-radius:12px; font-weight:700;">
-                當前狀態：<span style="color:var(--primary);">${c['辦理狀態']}</span>
-            </div>
-        `;
-
         const isSafety = (app.state.user.role === 'Admin' || app.state.user.role === 'SafetyUploader');
         const isDeptOwner = (app.state.user.role === 'DepartmentUploader' && c['主辦部門'] === app.state.user.department);
         const isAdmin = app.state.user.role === 'Admin';
 
+        // 構建分頁 HTML
+        let html = `
+            <div class="tabs-container">
+                <div class="tabs-header">
+                    <button class="tab-btn active" onclick="app.switchTab(event, 'tabFiles')"><i class="fas fa-folder-open"></i> 檔案管理</button>
+                    <button class="tab-btn" onclick="app.switchTab(event, 'tabDefs')"><i class="fas fa-list-ul"></i> 缺失項目</button>
+                </div>
+
+                <!-- 分頁一：檔案管理 -->
+                <div id="tabFiles" class="tab-content active">
+                    <div style="margin-bottom:15px; padding:12px; background:rgba(99,102,241,0.05); border-radius:12px; font-size:0.8rem; border:1px solid rgba(99,102,241,0.1);">
+                        <i class="fas fa-info-circle"></i> 當前狀態：<b style="color:var(--primary);">${c['辦理狀態']}</b>
+                    </div>
+                    <div class="manage-grid">
+        `;
+
         if (isAdmin) {
-            // 管理者顯示所有階段上傳
-            content += `<div class="manage-grid">
-                ${app.getUploadSection(id, 'stage2', '🔴 原始改善單 (S2)', 'var(--warning)', '請補傳/更換 Word 檔，方便改善部門修改')}
-                ${app.getUploadSection(id, 'stage3', '🟡 工作隊核章版 (S3)', '#fbbf24', '補傳或更換核章版')}
-                ${app.getUploadSection(id, 'stage4', '🟢 結案完成版 (S4)', 'var(--success)', '補傳或更換結案版')}
-            </div>`;
+            html += `
+                ${app.getUploadSection(id, 'stage2', 'S2 原始單', 'var(--warning)', '補傳/更換 Word 檔')}
+                ${app.getUploadSection(id, 'stage3', 'S3 核章版', '#fbbf24', '補傳或更換核章版')}
+                ${app.getUploadSection(id, 'stage4', 'S4 結案版', 'var(--success)', '補傳或更換結案版')}
+            `;
         } else {
-            // 一般使用者依狀態顯示
-            content += `<div class="manage-grid">`;
             if (c['辦理狀態'] === '第1階段-已登錄' && isSafety) {
-                content += app.getUploadSection(id, 'stage2', '🔴 上傳原始改善單', 'var(--warning)');
+                html += app.getUploadSection(id, 'stage2', 'S2 上傳原始單', 'var(--warning)');
             } else if (c['辦理狀態'] === '第2階段-改善單已上傳' && (isSafety || isDeptOwner)) {
-                if (isDeptOwner) {
-                    content += `<div class="upload-section" style="background:rgba(16,185,129,0.05); border:1px dashed var(--success); grid-column: 1/-1;">
-                        <p class="upload-note"><i class="fas fa-info-circle"></i> 您可以先查看歷史紀錄下載原始改善單，核章後再於此處上傳。</p>
-                    </div>`;
-                }
-                content += app.getUploadSection(id, 'stage3', '🟡 上傳工作隊核章版', '#fbbf24');
+                html += app.getUploadSection(id, 'stage3', 'S3 上傳核章版', '#fbbf24');
             } else if (c['辦理狀態'] === '第3階段-工作隊版已處理' && isSafety) {
-                content += app.getUploadSection(id, 'stage4', '🟢 上傳結案完成版', 'var(--success)');
+                html += app.getUploadSection(id, 'stage4', 'S4 上傳結案版', 'var(--success)');
+            } else {
+                html += `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--text-muted);">目前無可上傳之權限或階段未達。</div>`;
             }
-            content += `</div>`;
         }
 
-        // 管理者快速下載區 (優化顯示)
-        if (isAdmin && (c['第2階段連結'] || c['第3階段連結'] || c['第4階段連結'])) {
-            content += `<div style="margin-top:20px; padding:15px; background:rgba(0,0,0,0.03); border-radius:12px; border:1px solid var(--border);">
-                <div style="font-weight:800; margin-bottom:10px;"><i class="fas fa-folder-open"></i> 已上傳檔案存檔</div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                    ${c['第2階段連結'] ? `<a href="${c['第2階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.75rem;"><i class="fas fa-file-pdf"></i> S2 原始單</a>` : ''}
-                    ${c['第3階段連結'] ? `<a href="${c['第3階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.75rem;"><i class="fas fa-file-pdf"></i> S3 核章版</a>` : ''}
-                    ${c['第4階段連結'] ? `<a href="${c['第4階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.75rem;"><i class="fas fa-file-check"></i> S4 結案版</a>` : ''}
+        html += `
+                    </div>
+                    ${(c['第2階段連結'] || c['第3階段連結'] || c['第4階段連結']) ? `
+                    <div style="margin-top:15px; padding:12px; background:rgba(0,0,0,0.03); border-radius:12px; border:1px solid var(--border);">
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                            ${c['第2階段連結'] ? `<a href="${c['第2階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-file-pdf"></i> S2</a>` : ''}
+                            ${c['第3階段連結'] ? `<a href="${c['第3階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-file-pdf"></i> S3</a>` : ''}
+                            ${c['第4階段連結'] ? `<a href="${c['第4階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-file-check"></i> S4</a>` : ''}
+                        </div>
+                    </div>` : ''}
+                    <button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="app.viewHistory('${id}')"><i class="fas fa-history"></i> 查看歷史紀錄</button>
                 </div>
-            </div>`;
-        }
-        
-        content += `<button class="btn btn-outline" style="width:100%; margin-top:15px;" onclick="app.viewHistory('${id}')"><i class="fas fa-history"></i> 查看完整歷史紀錄</button>`;
-        
+
+                <!-- 分頁二：缺失項目 -->
+                <div id="tabDefs" class="tab-content">
+                    <div id="caseDefsList" style="margin-bottom:15px; max-height:200px; overflow-y:auto; border:1px solid var(--border); border-radius:12px; padding:5px;">
+                        <!-- 加載該案件的缺失 -->
+                        <div style="text-align:center; padding:10px; color:var(--text-muted);">載入中...</div>
+                    </div>
+                    <div style="background:var(--bg-input); padding:15px; border-radius:14px; border:1px solid var(--border);">
+                        <div style="font-weight:700; margin-bottom:8px; font-size:0.85rem;">快速新增/批次輸入缺失：</div>
+                        <textarea id="caseDefContent" style="width:100%; height:80px; margin-bottom:10px;" placeholder="每一行代表一項缺失..."></textarea>
+                        <div style="display:flex; gap:10px;">
+                            <input type="date" id="caseDefDeadline" value="${new Date().toISOString().split('T')[0]}" style="flex:1; font-size:0.8rem;">
+                            <button class="btn btn-primary" onclick="app.submitDeficiencyFromCase('${id}', '${c['工程簡稱']}', '${c['主辦部門']}')" style="font-size:0.8rem;">確認新增</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
         const projInfo = app.state.projects.find(p => p.abbr === c['工程簡稱']);
         const snLabel = projInfo ? `${projInfo.serial} - ` : '';
-        app.openModal(`案件管理: ${snLabel}${c['工程簡稱']}`, content);
+        app.openModal(`案件管理: ${snLabel}${c['工程簡稱']}`, html);
+        
+        // 延時載入缺失清單（確保 DOM 已渲染）
+        setTimeout(() => app.renderCaseDeficiencies(id), 100);
+    },
+    switchTab: (e, tabId) => {
+        const container = e.target.closest('.tabs-container');
+        container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        container.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        e.target.classList.add('active');
+        document.getElementById(tabId).classList.add('active');
+    },
+    renderCaseDeficiencies: (caseId) => {
+        const listDiv = document.getElementById('caseDefsList');
+        if (!listDiv) return;
+        const defs = app.state.deficiencies.filter(d => d.caseId === caseId);
+        if (defs.length === 0) {
+            listDiv.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-muted); font-size:0.8rem;">☕ 此案件尚無缺失紀錄</div>`;
+            return;
+        }
+        listDiv.innerHTML = defs.map(d => `
+            <div style="padding:10px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+                <div style="font-size:0.8rem;">
+                    <div style="font-weight:700;">${d.content}</div>
+                    <div style="color:var(--text-muted); font-size:0.75rem;">期限：${d.deadline} | 狀態：<span style="color:${d.status==='已改善'?'var(--success)':'var(--warning)'}">${d.status}</span></div>
+                </div>
+                ${app.state.user.role === 'Admin' ? `<button class="btn" onclick="app.deleteDeficiency('${d.id}'); setTimeout(()=>app.renderCaseDeficiencies('${caseId}'), 1000);" style="padding:4px; color:var(--warning); background:none;"><i class="fas fa-trash"></i></button>` : ''}
+            </div>
+        `).join('');
+    },
+    submitDeficiencyFromCase: async (caseId, abbr, dept) => {
+        const contentRaw = document.getElementById('caseDefContent').value.trim();
+        const deadline = document.getElementById('caseDefDeadline').value;
+        if (!contentRaw || !deadline) return app.showToast("請輸入內容與期限", "error");
+
+        const lines = contentRaw.split('\n').map(l => l.trim()).filter(l => l !== '');
+        app.setModalLoading(true);
+        try {
+            if (lines.length > 1) {
+                const items = lines.map(line => ({ caseId, abbr, content: line, deadline, department: dept, status: '待改善' }));
+                await api.batchAddDeficiencies(items);
+            } else {
+                await api.updateDeficiency({ caseId, abbr, content: lines[0], deadline, department: dept, status: '待改善' });
+            }
+            app.showToast("✅ 新增成功");
+            document.getElementById('caseDefContent').value = '';
+            await app.fetchDeficiencies();
+            app.renderCaseDeficiencies(caseId);
+        } catch(e) { app.showToast(e.message, "error"); } finally { app.setModalLoading(false); }
     },
     getUploadSection: (id, stage, label, color, note = '') => `
         <div class="upload-section" style="border-left: 5px solid ${color || 'var(--border)'}">
@@ -899,24 +958,38 @@ const app = {
         const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
         const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
 
-        app.openModal('生成查核統計報告', `
+        app.openModal('生成統計與缺失查詢報告', `
             <div style="display:flex; flex-direction:column; gap:15px;">
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                    <div><label>起始日期：</label><input type="date" id="reportStart" value="${firstDay}"></div>
-                    <div><label>結束日期：</label><input type="date" id="reportEnd" value="${lastDay}"></div>
+                <div class="report-field-group">
+                    <div><label>起始日期：</label><input type="date" id="reportStart" value="${firstDay}" style="width:100%;"></div>
+                    <div><label>結束日期：</label><input type="date" id="reportEnd" value="${lastDay}" style="width:100%;"></div>
+                </div>
+                <div class="report-field-group">
+                    <div>
+                        <label>篩選工程：</label>
+                        <select id="reportProj" style="width:100%;">
+                            <option value="">-- 全部工程 --</option>
+                            ${projectOptions}
+                        </select>
+                    </div>
+                    <div>
+                        <label>結案狀態：</label>
+                        <select id="reportStatus" style="width:100%;">
+                            <option value="">-- 全部狀態 --</option>
+                            <option value="已結案">僅列已結案</option>
+                            <option value="進行中">僅列進行中</option>
+                        </select>
+                    </div>
                 </div>
                 <div>
-                    <label>篩選工程：</label>
-                    <select id="reportProj" style="width:100%">
-                        <option value="">-- 全部工程 --</option>
-                        ${projectOptions}
-                    </select>
+                    <label>缺失內容關鍵字查詢：</label>
+                    <input type="text" id="reportKeyword" placeholder="關鍵字 (如: 漏電, 安全帽...)" style="width:100%;">
                 </div>
-                <button class="btn btn-primary" onclick="app.runReport()">查詢並生成報告</button>
+                <button class="btn btn-primary" onclick="app.runReport()" style="justify-content:center;">查詢並生成報告</button>
                 <div id="reportResult" class="hidden" style="margin-top:15px; border-top:1px solid var(--border); padding-top:15px;">
                     <div id="reportSummary" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;"></div>
                     <div id="reportDetail" style="max-height:300px; overflow-y:auto; font-size:0.85rem;"></div>
-                    <button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="app.printReport()">列印報告 / 導出 PDF</button>
+                    <button class="btn btn-outline" style="width:100%; margin-top:10px; justify-content:center;" onclick="app.printReport()">列印報告 / 導出 PDF</button>
                 </div>
             </div>
         `);
@@ -925,17 +998,31 @@ const app = {
         const start = document.getElementById('reportStart').value;
         const end = document.getElementById('reportEnd').value;
         const projAbbr = document.getElementById('reportProj').value;
+        const statusFilter = document.getElementById('reportStatus').value;
+        const keyword = document.getElementById('reportKeyword').value.trim().toLowerCase();
 
-        const filteredCases = app.state.cases.filter(c => {
+        // 1. 先篩選案件
+        let filteredCases = app.state.cases.filter(c => {
             const date = c['查核日期'];
             if (!date) return false;
             const isDateMatch = date >= start && date <= end;
             const isProjMatch = projAbbr === '' || c['工程簡稱'] === projAbbr;
-            return isDateMatch && isProjMatch;
+            
+            let isStatusMatch = true;
+            if (statusFilter === '已結案') isStatusMatch = c['辦辦狀態'] === '第4階段-已結案';
+            if (statusFilter === '進行中') isStatusMatch = c['辦辦狀態'] !== '第4階段-已結案';
+
+            return isDateMatch && isProjMatch && isStatusMatch;
         });
 
-        const caseIds = filteredCases.map(c => c.id);
-        const filteredDefs = app.state.deficiencies.filter(d => caseIds.includes(d.caseId));
+        // 2. 獲取篩選案件的缺失，並應用關鍵字過濾
+        let filteredDefs = app.state.deficiencies.filter(d => filteredCases.find(c => c.id === d.caseId));
+        if (keyword) {
+            filteredDefs = filteredDefs.filter(d => d.content.toLowerCase().includes(keyword));
+            // 反向過濾案件：僅保留包含關鍵字缺失的案件
+            const matchingCaseIds = new Set(filteredDefs.map(d => d.caseId));
+            filteredCases = filteredCases.filter(c => matchingCaseIds.has(c.id));
+        }
 
         const summaryBox = document.getElementById('reportSummary');
         summaryBox.innerHTML = `
@@ -944,20 +1031,24 @@ const app = {
                 <div style="font-size:1.5rem; font-weight:800; color:var(--primary);">${filteredCases.length}</div>
             </div>
             <div style="padding:10px; background:rgba(245,158,11,0.1); border-radius:8px; text-align:center;">
-                <div style="font-size:0.75rem; color:var(--text-muted);">總缺失數</div>
+                <div style="font-size:0.75rem; color:var(--text-muted);">符合缺失數</div>
                 <div style="font-size:1.5rem; font-weight:800; color:var(--warning);">${filteredDefs.length}</div>
             </div>
         `;
 
         const detailBox = document.getElementById('reportDetail');
         if (filteredCases.length === 0) {
-            detailBox.innerHTML = '<p style="text-align:center;">此區間無資料</p>';
+            detailBox.innerHTML = '<p style="text-align:center; padding:20px;">此條件下無相關資料</p>';
         } else {
-            let html = '<table style="width:100%; border-collapse:collapse;">';
-            html += '<thead style="background:var(--bg-input);"><tr><th style="text-align:left; padding:5px;">日期</th><th style="text-align:left; padding:5px;">工程</th><th style="text-align:right; padding:5px;">缺失數</th></tr></thead><tbody>';
+            let html = '<table style="width:100%; border-collapse:collapse; font-size:0.8rem;">';
+            html += '<thead style="background:var(--bg-input);"><tr><th style="text-align:left; padding:8px;">日期/工程</th><th style="text-align:left; padding:8px;">缺失內容明細</th></tr></thead><tbody>';
             filteredCases.forEach(c => {
-                const defCount = filteredDefs.filter(d => d.caseId === c.id).length;
-                html += `<tr style="border-bottom:1px solid var(--border);"><td style="padding:5px;">${c['查核日期']}</td><td style="padding:5px;">${c['工程簡稱']}</td><td style="text-align:right; padding:5px;">${defCount}</td></tr>`;
+                const caseDefs = filteredDefs.filter(d => d.caseId === c.id);
+                const defsHtml = caseDefs.map(d => `• ${d.content}`).join('<br>');
+                html += `<tr style="border-bottom:1px solid var(--border); vertical-align:top;">
+                    <td style="padding:8px; white-space:nowrap;"><b>${c['查核日期']}</b><br>${c['工程簡稱']}</td>
+                    <td style="padding:8px;">${defsHtml || '<span style="color:var(--text-muted);">無符合關鍵字缺失</span>'}</td>
+                </tr>`;
             });
             html += '</tbody></table>';
             detailBox.innerHTML = html;
