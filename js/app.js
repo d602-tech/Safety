@@ -267,20 +267,21 @@ const app = {
     getProgressHtml: (c) => {
         const s2 = !!c['第2階段連結'];
         const s3 = !!c['第3階段連結'];
-        const s4 = !!c['第4階段連結'];
+        const s4e = !!c['第4階段連結-員工'];
+        const s4c = !!c['第4階段連結-承攬商'];
         const isClosed = c['辦理狀態'] === '第4階段-已結案';
 
         return `
             <div class="progress-container">
                 <div class="progress-label">
                     <span>階段進度</span>
-                    <span>${isClosed ? '100%' : (s4 ? '75%' : (s3 ? '50%' : (s2 ? '25%' : '0%')))}</span>
+                    <span>${isClosed ? '100%' : ((s4e && s4c) ? '80%' : (s4e || s4c ? '70%' : (s3 ? '50%' : (s2 ? '25%' : '0%'))))}</span>
                 </div>
                 <div class="progress-track">
                     <div class="progress-step step-s1 active" title="S1: 已登錄"></div>
-                    <div class="progress-step step-s2 ${s2 || s3 || s4 ? 'active' : ''}" title="S2: 改善單"></div>
-                    <div class="progress-step step-s3 ${s3 || s4 ? 'active' : ''}" title="S3: 核章版"></div>
-                    <div class="progress-step step-s4 ${s4 || isClosed ? 'active' : ''}" title="S4: 結案版"></div>
+                    <div class="progress-step step-s2 ${s2 || s3 || s4e || s4c ? 'active' : ''}" title="S2: 改善單"></div>
+                    <div class="progress-step step-s3 ${s3 || s4e || s4c ? 'active' : ''}" title="S3: 核章版"></div>
+                    <div class="progress-step step-s4 ${s4e || s4c || isClosed ? 'active' : ''}" title="S4: 結案 (員/承)"></div>
                 </div>
             </div>
         `;
@@ -295,9 +296,10 @@ const app = {
         );
 
         const stages = [
-            { key: '第2階段連結', label: 'S2', class: 's2', icon: 'fa-file-pdf' },
-            { key: '第3階段連結', label: 'S3', class: 's3', icon: 'fa-file-pdf' },
-            { key: '第4階段連結', label: 'S4', class: 's4', icon: 'fa-file-check' }
+            { key: '第2階段連結', label: 'S2', class: 's2', icon: 'fa-file-signature' },
+            { key: '第3階段連結', label: 'S3', class: 's3', icon: 'fa-stamp' },
+            { key: '第4階段連結-員工', label: 'S4員工', class: 's4', icon: 'fa-user-check' },
+            { key: '第4階段連結-承攬商', label: 'S4承攬', class: 's4', icon: 'fa-building-circle-check' }
         ];
 
         return `
@@ -307,10 +309,8 @@ const app = {
                     if (url && canAccess) {
                         return `<a href="${url}" target="_blank" class="file-icon uploaded ${s.class}" title="已上傳 ${s.label}"><i class="fas ${s.icon}"></i> ${s.label}</a>`;
                     } else if (url && !canAccess) {
-                        // 有檔案但沒權限下載，顯示鎖定圖示
                         return `<div class="file-icon uploaded" title="已上傳，但您無權下載" style="color:var(--text-muted);"><i class="fas fa-lock"></i> ${s.label}</div>`;
                     } else {
-                        // 尚未上傳
                         return `<div class="file-icon missing" title="${s.label} 尚未上傳"><i class="fas ${s.icon}"></i> ${s.label}</div>`;
                     }
                 }).join('')}
@@ -396,8 +396,9 @@ const app = {
             const isAdmin = app.state.user && app.state.user.role === 'Admin';
             const projInfo = app.state.projects.find(p => p.abbr === c['工程簡稱']);
             const snLabel = projInfo ? `${projInfo.serial} - ` : '';
+            const hasFiles = !!(c['第2階段連結'] || c['第3階段連結'] || c['第4階段連結-員工'] || c['第4階段連結-承攬商']);
             const card = document.createElement('div');
-            card.className = 'case-card';
+            card.className = `case-card ${hasFiles ? 'has-files' : ''}`;
             card.setAttribute('data-dept', c['主辦部門'] || '');
             card.innerHTML = `
                 <div class="card-header">
@@ -438,7 +439,9 @@ const app = {
         cases.forEach(c => {
             const projInfo = app.state.projects.find(p => p.abbr === c['工程簡稱']);
             const snLabel = projInfo ? `${projInfo.serial} - ` : '';
+            const hasFiles = !!(c['第2階段連結'] || c['第3階段連結'] || c['第4階段連結-員工'] || c['第4階段連結-承攬商']);
             const tr = document.createElement('tr');
+            if (hasFiles) tr.classList.add('has-files');
             tr.innerHTML = `
                 <td><b>${snLabel}${c['工程簡稱']}</b></td>
                 <td>${c['承攬商']}</td>
@@ -794,17 +797,19 @@ const app = {
 
         if (isAdmin) {
             html += `
-                ${app.getUploadSection(id, 'stage2', 'S2 原始單', 'var(--warning)', '補傳/更換 Word 檔')}
-                ${app.getUploadSection(id, 'stage3', 'S3 核章版', '#fbbf24', '補傳或更換核章版')}
-                ${app.getUploadSection(id, 'stage4', 'S4 結案版', 'var(--success)', '補傳或更換結案版')}
+                ${app.getUploadSection(id, 'stage2', 'S2 原始單', 'var(--warning)', '補傳/更換 Word 檔', !!c['第2階段連結'])}
+                ${app.getUploadSection(id, 'stage3', 'S3 核章版', '#fbbf24', '補傳或更換核章版', !!c['第3階段連結'])}
+                ${app.getUploadSection(id, 'stage4e', 'S4 結案(員工)', 'var(--success)', '補傳或更換員工版', !!c['第4階段連結-員工'])}
+                ${app.getUploadSection(id, 'stage4c', 'S4 結案(承)', 'var(--success)', '補傳或更換承攬商版', !!c['第4階段連結-承攬商'])}
             `;
         } else {
             if (c['辦理狀態'] === '第1階段-已登錄' && isSafety) {
-                html += app.getUploadSection(id, 'stage2', 'S2 上傳原始單', 'var(--warning)');
+                html += app.getUploadSection(id, 'stage2', 'S2 上傳原始單', 'var(--warning)', '', !!c['第2階段連結']);
             } else if (c['辦理狀態'] === '第2階段-改善單已上傳' && (isSafety || isDeptOwner)) {
-                html += app.getUploadSection(id, 'stage3', 'S3 上傳核章版', '#fbbf24');
+                html += app.getUploadSection(id, 'stage3', 'S3 上傳核章版', '#fbbf24', '', !!c['第3階段連結']);
             } else if (c['辦理狀態'] === '第3階段-工作隊版已處理' && isSafety) {
-                html += app.getUploadSection(id, 'stage4', 'S4 上傳結案版', 'var(--success)');
+                html += app.getUploadSection(id, 'stage4e', 'S4 上傳員工結案版', 'var(--success)', '', !!c['第4階段連結-員工']);
+                html += app.getUploadSection(id, 'stage4c', 'S4 上傳承攬商結案版', 'var(--success)', '', !!c['第4階段連結-承攬商']);
             } else {
                 html += `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--text-muted);">目前無可上傳之權限或階段未達。</div>`;
             }
@@ -812,12 +817,13 @@ const app = {
 
         html += `
                     </div>
-                    ${(c['第2階段連結'] || c['第3階段連結'] || c['第4階段連結']) ? `
+                    ${(c['第2階段連結'] || c['第3階段連結'] || c['第4階段連結-員工'] || c['第4階段連結-承攬商']) ? `
                     <div style="margin-top:15px; padding:12px; background:rgba(0,0,0,0.03); border-radius:12px; border:1px solid var(--border);">
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                            ${c['第2階段連結'] ? `<a href="${c['第2階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-file-pdf"></i> S2</a>` : ''}
-                            ${c['第3階段連結'] ? `<a href="${c['第3階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-file-pdf"></i> S3</a>` : ''}
-                            ${c['第4階段連結'] ? `<a href="${c['第4階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-file-check"></i> S4</a>` : ''}
+                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(80px, 1fr)); gap:8px;">
+                            ${c['第2階段連結'] ? `<a href="${c['第2階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-file-signature"></i> S2</a>` : ''}
+                            ${c['第3階段連結'] ? `<a href="${c['第3階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-stamp"></i> S3</a>` : ''}
+                            ${c['第4階段連結-員工'] ? `<a href="${c['第4階段連結-員工']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-user-check"></i> S4員</a>` : ''}
+                            ${c['第4階段連結-承攬商'] ? `<a href="${c['第4階段連結-承攬商']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-building-circle-check"></i> S4承</a>` : ''}
                         </div>
                     </div>` : ''}
                     <button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="app.viewHistory('${id}')"><i class="fas fa-history"></i> 查看歷史紀錄</button>
@@ -825,16 +831,26 @@ const app = {
 
                 <!-- 分頁二：缺失項目 -->
                 <div id="tabDefs" class="tab-content">
-                    <div id="caseDefsList" style="margin-bottom:15px; max-height:200px; overflow-y:auto; border:1px solid var(--border); border-radius:12px; padding:5px;">
+                    <div class="modal-instruction" style="margin-bottom:10px;">
+                        <i class="fas fa-keyboard"></i> <b>填寫說明：</b> 每一行代表一項缺失。如有多項可直接換行輸入，系統將自動拆分為獨立項目。
+                    </div>
+                    <div id="caseDefsList" style="margin-bottom:15px; max-height:220px; overflow-y:auto; border:1px solid var(--border); border-radius:12px; padding:5px; background:rgba(0,0,0,0.01);">
                         <!-- 加載該案件的缺失 -->
                         <div style="text-align:center; padding:10px; color:var(--text-muted);">載入中...</div>
                     </div>
                     <div style="background:var(--bg-input); padding:15px; border-radius:14px; border:1px solid var(--border);">
-                        <div style="font-weight:700; margin-bottom:8px; font-size:0.85rem;">快速新增/批次輸入缺失：</div>
-                        <textarea id="caseDefContent" style="width:100%; height:80px; margin-bottom:10px;" placeholder="每一行代表一項缺失..."></textarea>
-                        <div style="display:flex; gap:10px;">
-                            <input type="date" id="caseDefDeadline" value="${new Date().toISOString().split('T')[0]}" style="flex:1; font-size:0.8rem;">
-                            <button class="btn btn-primary" onclick="app.submitDeficiencyFromCase('${id}', '${c['工程簡稱']}', '${c['主辦部門']}')" style="font-size:0.8rem;">確認新增</button>
+                        <div style="font-weight:700; margin-bottom:8px; font-size:0.85rem; color:var(--primary);">
+                            <i class="fas fa-plus-circle"></i> 快速新增缺失
+                        </div>
+                        <textarea id="caseDefContent" style="width:100%; height:80px; margin-bottom:10px; border-radius:8px;" placeholder="範例：&#10;1. 現場人員未戴安全帽&#10;2. 施工架下方未設置防護網..."></textarea>
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <div style="flex:1;">
+                                <label style="font-size:0.75rem; color:var(--text-muted); display:block; margin-bottom:4px;">改善期限</label>
+                                <input type="date" id="caseDefDeadline" value="${new Date().toISOString().split('T')[0]}" style="width:100%; font-size:0.8rem;">
+                            </div>
+                            <button class="btn btn-primary" onclick="app.submitDeficiencyFromCase('${id}', '${c['工程簡稱']}', '${c['主辦部門']}')" style="align-self: flex-end; padding:10px 20px;">
+                                <i class="fas fa-paper-plane"></i> 確認新增
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -928,19 +944,25 @@ const app = {
 
         app.openModal('全域批次新增缺失', `
             <div style="display:flex; flex-direction:column; gap:15px;">
+                <div class="modal-instruction">
+                    <i class="fas fa-lightbulb"></i> <b>使用小技巧：</b><br>
+                    您可以一次貼上多行缺失內容，系統會自動為該案件建立多筆紀錄。主辦部門與承攬商將自動代入案件資訊。
+                </div>
                 <div>
                     <label>選擇案件：</label>
-                    <select id="globalBatchCase" style="width:100%">${options}</select>
+                    <select id="globalBatchCase" style="width:100%; height:45px;">${options}</select>
                 </div>
                 <div>
                     <label>缺失內容 (每一行一筆)：</label>
-                    <textarea id="globalBatchContent" style="width:100%; height:150px;" placeholder="請輸入缺失內容..."></textarea>
+                    <textarea id="globalBatchContent" style="width:100%; height:150px;" placeholder="例如：&#10;滅火器過期&#10;走道堆置雜物..."></textarea>
                 </div>
                 <div>
                     <label>改善期限：</label>
                     <input type="date" id="globalBatchDeadline" value="${new Date().toISOString().split('T')[0]}">
                 </div>
-                <button class="btn btn-primary" onclick="app.submitGlobalBatch()">確認批次新增</button>
+                <button class="btn btn-primary" onclick="app.submitGlobalBatch()" style="justify-content:center; padding:15px;">
+                    <i class="fas fa-plus"></i> 確認批次新增
+                </button>
             </div>
         `);
     },
@@ -986,15 +1008,18 @@ const app = {
             app.renderCaseDeficiencies(caseId);
         } catch(e) { app.showToast(e.message, "error"); } finally { app.setModalLoading(false); }
     },
-    getUploadSection: (id, stage, label, color, note = '') => `
-        <div class="upload-section" style="border-left: 5px solid ${color || 'var(--border)'}">
+    getUploadSection: (id, stage, label, color, note = '', exists = false) => `
+        <div class="upload-section" style="border-left: 5px solid ${color || 'var(--border)'}; position:relative;">
+            ${exists ? `<span style="position:absolute; top:8px; right:8px; font-size:0.6rem; color:var(--success); background:rgba(16,185,129,0.1); padding:2px 6px; border-radius:4px;"><i class="fas fa-check"></i> 已存在 (點擊可抽換)</span>` : ''}
             <div class="upload-header" style="color:${color || 'inherit'}">
                 <i class="fas fa-cloud-upload-alt"></i> ${label}
             </div>
             ${note ? `<p class="upload-note">${note}</p>` : ''}
             <div class="upload-actions">
                 <input type="file" id="file_${stage}" style="width:100%; margin-bottom:12px; font-size:0.8rem;" />
-                <button class="btn" style="width:100%; justify-content:center; background:${color || 'var(--primary)'}; color:white;" onclick="app.submitFile('${id}', '${stage}')">確認存檔</button>
+                <button class="btn" style="width:100%; justify-content:center; background:${color || 'var(--primary)'}; color:white;" onclick="app.submitFile('${id}', '${stage}')">
+                    ${exists ? '替換現有檔案' : '確認上傳存檔'}
+                </button>
             </div>
         </div>
     `,
@@ -1123,7 +1148,7 @@ const app = {
         ];
 
         let html = `
-            <div style="background:rgba(99,102,241,0.05); padding:15px; border-radius:12px; border:1px dashed var(--primary); margin-bottom:20px; font-size:0.85rem;">
+            <div class="modal-instruction">
                 <i class="fas fa-info-circle"></i> <b>空白表單下載說明：</b><br>
                 點擊下方連結將直接下載為 <b>Word (.docx)</b> 格式。表單僅限下載使用，不支援線上編輯，以確保版面格式正確。
             </div>
@@ -1133,17 +1158,16 @@ const app = {
             html += `
                 <div style="margin-bottom:20px;">
                     <div style="font-weight:700; color:var(--primary); margin-bottom:10px; padding-left:5px; border-left:4px solid var(--primary);">${cat.title}</div>
-                    <div style="display:flex; flex-direction:column; gap:8px;">
+                    <div class="forms-grid">
             `;
             cat.forms.forEach(f => {
                 html += `
                     <a href="https://docs.google.com/document/d/${f.id}/export?format=docx" 
-                       class="btn btn-outline" 
-                       style="justify-content:space-between; padding:12px 15px; text-decoration:none; color:var(--text-main); background:var(--bg-card); border-color:rgba(0,0,0,0.05);" 
+                       class="form-card" 
                        target="_blank" 
                        title="點擊下載 Word 檔">
-                        <span style="flex:1; text-align:left; font-size:0.85rem;">${f.name}</span>
-                        <i class="fas fa-download" style="color:var(--primary); margin-left:15px; font-size:0.8rem;"></i>
+                        <span>${f.name}</span>
+                        <i class="fas fa-download"></i>
                     </a>
                 `;
             });

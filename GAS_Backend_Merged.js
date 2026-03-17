@@ -395,7 +395,7 @@ function uploadInspectionFile(fileInfo, caseId, stage, roleData) {
 
     if (stage === 'stage2' && currentIndex < 1) newStatus = STATUS.STAGE2;
     else if (stage === 'stage3' && currentIndex < 2) newStatus = STATUS.STAGE3;
-    else if (stage === 'stage4') {
+    else if (stage === 'stage4' || stage === 'stage4e' || stage === 'stage4c') {
         newStatus = STATUS.STAGE4;
         const closeDateCol = headers.indexOf('結案日期');
         if (closeDateCol > -1) sheet.getRange(rowIdx, closeDateCol + 1).setValue(new Date());
@@ -407,25 +407,41 @@ function uploadInspectionFile(fileInfo, caseId, stage, roleData) {
     
     // 將連結存回主清單對應欄位
     let urlColNum = -1;
-    if (stage === 'stage2') urlColNum = headers.indexOf('第2階段連結') + 1;
-    else if (stage === 'stage3') urlColNum = headers.indexOf('第3階段連結') + 1;
-    else if (stage === 'stage4') urlColNum = headers.indexOf('第4階段連結') + 1;
+    let targetHeader = '';
+    
+    if (stage === 'stage2') {
+        targetHeader = '第2階段連結';
+    } else if (stage === 'stage3') {
+        targetHeader = '第3階段連結';
+    } else if (stage === 'stage4' || stage === 'stage4e') {
+        targetHeader = '第4階段連結-員工';
+    } else if (stage === 'stage4c') {
+        targetHeader = '第4階段連結-承攬商';
+    }
+    
+    urlColNum = headers.indexOf(targetHeader) + 1;
     
     if (urlColNum > 0) {
         sheet.getRange(rowIdx, urlColNum).setValue(fileUrl);
-    } else {
-        // 若欄位不存在，則動態新增（通常發生在剛升級系統時）
-        const newHeader = stage === 'stage2' ? '第2階段連結' : (stage === 'stage3' ? '第3階段連結' : '第4階段連結');
+    } else if (targetHeader !== '') {
+        // 若欄位不存在，則動態新增
         const lastCol = sheet.getLastColumn();
-        sheet.getRange(1, lastCol + 1).setValue(newHeader);
+        sheet.getRange(1, lastCol + 1).setValue(targetHeader);
         sheet.getRange(rowIdx, lastCol + 1).setValue(fileUrl);
-        // 更新 headers 變數供後續 log 使用
-        headers.push(newHeader);
+        headers.push(targetHeader);
     }
 
     sheet.getRange(rowIdx, headers.indexOf('修改人員') + 1).setValue(userEmail);
     
-    let stageDisplay = stage === 'report' ? '完成報告檔案' : '階段' + stage.replace(/\D/g, '') + '檔案';
+    let stageDisplay = '';
+    switch(stage) {
+        case 'stage2': stageDisplay = 'S2 原始改善單'; break;
+        case 'stage3': stageDisplay = 'S3 工作隊核章'; break;
+        case 'stage4e': 
+        case 'stage4': stageDisplay = 'S4 員工結案版'; break;
+        case 'stage4c': stageDisplay = 'S4 承攬商結案版'; break;
+        default: stageDisplay = '檔案上傳';
+    }
     logChange_(caseId, auditData['工程簡稱'], userEmail, '檔案上傳', stageDisplay, newFileName, fileUrl);
     
     return { success: true, message: '檔案 "' + newFileName + '" 上傳成功！', records: getAuditRecords_() };
@@ -818,9 +834,11 @@ function generateFileName_(stage, auditData, extension) {
   const contractor = auditData['承攬商'];
   var prefix = '';
   switch (stage) {
-    case 'stage2': prefix = '【原始改善單】'; break;
-    case 'stage3': prefix = '【工作隊核章】'; break;
-    case 'stage4': prefix = '【結案】'; break;
+    case 'stage2': prefix = '【S2_原始改善單】'; break;
+    case 'stage3': prefix = '【S3_工作隊核章】'; break;
+    case 'stage4': 
+    case 'stage4e': prefix = '【S4_結案-員工】'; break;
+    case 'stage4c': prefix = '【S4_結案-承攬商】'; break;
     case 'report': prefix = '【完成報告】'; break;
   }
   return prefix + auditDate + '_' + projectAbbr + '_工安查核改善單(' + contractor + ')' + extension;
