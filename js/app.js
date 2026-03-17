@@ -1098,6 +1098,40 @@ const app = {
             if (btn) btn.disabled = false;
         }
     },
+    openBlankFormsModal: () => {
+        const forms = [
+            { name: "1. 承攬商工安查核紀錄表", id: "1Ld3Kpbdb7iKEb7jaRa6wTE-k7UX-ACw_" },
+            { name: "2. 承攬商工安查核紀錄表，附件3承攬商外籍移工工作管理抽查表", id: "1G9dgYKIhSIZtgC9NK-H1lK6irvCQveJg" },
+            { name: "3. 承攬商工安查核紀錄表，附件4防颱整備聯繫支援督導表項目檢查結果一覽表【每年5~11月必填】", id: "1-GN-OqB59cEKEd0SJ1ghcwkcFtwuXNY0" },
+            { name: "4. 自辦監造員工工安查核紀錄表", id: "1xFH7fxaR69GYnyEwK73KLH9TcjucdQ9O" },
+            { name: "5. 委外監造員工工安查核紀錄表", id: "12kXyBDtAddQYPzaGnKtZH2ZfOjWGxiCS" }
+        ];
+
+        let html = `
+            <div style="background:rgba(99,102,241,0.05); padding:15px; border-radius:12px; border:1px dashed var(--primary); margin-bottom:20px; font-size:0.85rem;">
+                <i class="fas fa-info-circle"></i> <b>下載說明：</b><br>
+                點擊下方連結將直接下載為 <b>Word (.docx)</b> 格式。表單僅限下載使用，不支援線上編輯，以確保版面格式正確。
+            </div>
+            <div style="display:flex; flex-direction:column; gap:12px;">
+        `;
+
+        forms.forEach(f => {
+            html += `
+                <a href="https://docs.google.com/document/d/${f.id}/export?format=docx" 
+                   class="btn btn-outline" 
+                   style="justify-content:space-between; padding:15px 20px; text-decoration:none; color:var(--text-main);" 
+                   target="_blank" 
+                   title="點擊下載 Word 檔">
+                    <span style="flex:1; text-align:left; font-size:0.9rem;">${f.name}</span>
+                    <i class="fas fa-download" style="color:var(--primary); margin-left:15px;"></i>
+                </a>
+            `;
+        });
+
+        html += `</div>`;
+        app.openModal('空白表單下載區', html);
+    },
+
     openReportModal: () => {
         const projects = app.state.projects;
         const projectOptions = projects.map(p => `<option value="${p.abbr}">${p.abbr}</option>`).join('');
