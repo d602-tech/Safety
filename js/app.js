@@ -192,7 +192,22 @@ const app = {
         if (btnProjMgmt) btnProjMgmt.classList.add('hidden');
         if (btnAdminUsers) btnAdminUsers.classList.add('hidden');
 
+        // 簡化部分 (針對 DepartmentUploader)
+        const workflow = document.querySelector('.workflow-section');
+        const modeSwitch = document.querySelector('.mode-switch-wrapper');
+        const deptStats = document.getElementById('deptStatsSection');
+        
+        if (workflow) workflow.classList.remove('hidden');
+        if (modeSwitch) modeSwitch.classList.remove('hidden');
+        if (deptStats) deptStats.classList.add('hidden');
+
         if (!app.state.user) return;
+
+        if (app.state.user.role === 'DepartmentUploader') {
+            if (workflow) workflow.classList.add('hidden');
+            if (modeSwitch) modeSwitch.classList.add('hidden');
+            if (deptStats) deptStats.classList.remove('hidden');
+        }
 
         if ((app.state.user.role === 'Admin' || app.state.user.role === 'SafetyUploader') && btnNew) {
             btnNew.classList.remove('hidden');
@@ -443,7 +458,7 @@ const app = {
             card.innerHTML = `
                 <div class="card-header">
                     <h4 class="report-clickable" onclick="app.openManage('${c.id}')">${snLabel}${c['工程簡稱']}</h4>
-                    <span class="badge ${isOverdue ? 'warning' : (isClosed ? 'success' : 'badge-status')}">${c['辦理狀態']}</span>
+                    <span class="badge ${isOverdue ? 'warning' : (isClosed ? 'success' : 'badge-status')}">${app.formatStatus(c['辦理狀態'])}</span>
                 </div>
                 <div class="card-body">
                     <div class="info-row"><i class="fas fa-building"></i> ${c['主辦部門']}</div>
@@ -492,7 +507,7 @@ const app = {
                     ${app.getFileStatusHtml(c)}
                     ${app.getProgressHtml(c)}
                 </td>
-                <td><span class="badge ${c['辦理狀態'] === '第4階段-已結案' ? 'success' : 'badge-status'}">${c['辦理狀態']}</span></td>
+                <td><span class="badge ${c['辦理狀態'] === '第4階段-已結案' ? 'success' : 'badge-status'}">${app.formatStatus(c['辦理狀態'])}</span></td>
                 <td>
                     <div style="display:flex; gap:5px;">
                         <button class="btn btn-outline" onclick="app.openManage('${c.id}')">管理</button>
@@ -775,10 +790,80 @@ const app = {
     /** 統計與基礎共用函數 */
     updateStats: () => {
         const todayStr = new Date().toISOString().split('T')[0];
-        document.getElementById('stat-total').innerText = app.state.cases.length;
-        document.getElementById('stat-active').innerText = app.state.cases.filter(c => c['辦理狀態'] !== '第4階段-已結案').length;
-        document.getElementById('stat-closed').innerText = app.state.cases.filter(c => c['辦理狀態'] === '第4階段-已結案').length;
-        document.getElementById('stat-overdue').innerText = app.state.cases.filter(c => c['辦理狀態'] !== '第4階段-已結案' && c['最晚應核章日期'] < todayStr).length;
+        let cases = app.state.cases;
+        const isDept = app.state.user && app.state.user.role === 'DepartmentUploader';
+        
+        if (isDept) {
+            cases = cases.filter(c => c['主辦部門'] === app.state.user.department);
+            app.renderDeptStats(cases);
+        }
+
+        document.getElementById('stat-total').innerText = cases.length;
+        document.getElementById('stat-active').innerText = cases.filter(c => c['辦理狀態'] !== '第4階段-已結案').length;
+        document.getElementById('stat-closed').innerText = cases.filter(c => c['辦理狀態'] === '第4階段-已結案').length;
+        document.getElementById('stat-overdue').innerText = cases.filter(c => c['辦理狀態'] !== '第4階段-已結案' && c['最晚應核章日期'] < todayStr).length;
+
+        // 更新卡片標題 (角色區分)
+        const titles = document.querySelectorAll('.stat-info .title');
+        if (titles.length >= 4) {
+            if (isDept) {
+                titles[0].innerText = '本隊查核數';
+                titles[1].innerText = '本隊進行中';
+                titles[2].innerText = '本隊已逾期';
+                titles[3].innerText = '本隊已完成';
+            } else {
+                titles[0].innerText = '查核總數';
+                titles[1].innerText = '進行中';
+                titles[2].innerText = '已逾期';
+                titles[3].innerText = '已結案';
+            }
+        }
+    },
+
+    formatStatus: (status) => {
+        if (app.state.user && app.state.user.role === 'DepartmentUploader') {
+            if (status === '第3階段-工作隊版已處理') return '已上傳 (待結案)';
+            if (status === '第2階段-改善單已上傳') return '待處理 (步驟2)';
+            if (status === '第4階段-已結案') return '已結案';
+        }
+        return status;
+    },
+
+    renderDeptStats: (deptCases) => {
+        const projStatsTable = document.getElementById('projectStatsTable');
+        const caseDatesTable = document.getElementById('caseDatesTable');
+        if (!projStatsTable || !caseDatesTable) return;
+
+        // 1. 工程統計
+        const projMap = {};
+        deptCases.forEach(c => {
+            const p = c['工程簡稱'];
+            if (!projMap[p]) projMap[p] = { count: 0, defs: 0 };
+            projMap[p].count++;
+            projMap[p].defs += app.state.deficiencies.filter(d => d.caseId === c.id).length;
+        });
+
+        let projHtml = '<table style="width:100%; border-collapse:collapse;">';
+        projHtml += '<tr style="border-bottom:1px solid var(--border); color:var(--text-muted);"><th>工程</th><th>查核</th><th>缺失</th></tr>';
+        Object.entries(projMap).sort((a,b) => b[1].count - a[1].count).forEach(([p, s]) => {
+            projHtml += `<tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 0;">${p}</td><td>${s.count}</td><td>${s.defs}</td></tr>`;
+        });
+        projHtml += '</table>';
+        projStatsTable.innerHTML = projHtml;
+
+        // 2. 查核日 vs 結案日
+        let dateHtml = '<table style="width:100%; border-collapse:collapse;">';
+        dateHtml += '<tr style="border-bottom:1px solid var(--border); color:var(--text-muted);"><th>日期</th><th>工程</th><th>狀態</th></tr>';
+        deptCases.slice(0, 15).forEach(c => {
+            const isClosed = c['辦理狀態'] === '第4階段-已結案';
+            dateHtml += `<tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 0;">${c['查核日期']}</td>
+                <td>${c['工程簡稱']}</td>
+                <td style="color:${isClosed ? 'var(--success)' : 'var(--warning)'}">${isClosed ? '已結案' : '處理中'}</td>
+            </tr>`;
+        });
+        dateHtml += '</table>';
+        caseDatesTable.innerHTML = dateHtml;
     },
     extractDepartments: () => {
         const depts = new Set(app.state.cases.map(c => c['主辦部門']).filter(Boolean));
@@ -844,6 +929,12 @@ const app = {
                         <div class="value">${c['查核日期']}</div>
                         <div style="font-size:0.9rem; opacity:0.8; margin-top:8px;">工程：<b>${c['工程簡稱']}</b></div>
                     </div>
+
+                    <div class="deadline-hero">
+                        <div class="label"><i class="fas fa-clock"></i> 最晚應結案日期 (核章期限)</div>
+                        <div class="value">${c['最晚應核章日期']}</div>
+                        <div class="note">⚠️ 註：結案日期之判定依據為「受查單位經辦人員之核章日期」，請務必準時辦理。</div>
+                    </div>
                     
                     <div class="lite-step-card ${c['第2階段連結'] ? 'active' : ''}">
                         <span class="step-badge">步驟 1</span>
@@ -860,7 +951,7 @@ const app = {
                         <h4><i class="fas fa-file-pdf"></i> 上傳第 3 階段核章版</h4>
                         <p>完成現場改善並核章後，請將掃描後的 PDF 檔案在此回傳。系統將自動通知工安組結案。</p>
                         ${(c['辦理狀態'] === '第2階段-改善單已上傳' || (c['辦理狀態'] === '第3階段-工作隊版已處理' && isDeptOwner)) ? 
-                            app.getUploadSection(id, 'stage3', '立即上傳核章版 PDF', '#fbbf24', '', !!c['第3階段連結']) : 
+                            app.getUploadSection(id, 'stage3', !!c['第3階段連結'] ? '已上傳 - 點選可更換' : '立即上傳核章版 PDF', '#fbbf24', '', !!c['第3階段連結']) : 
                             `<div style="color:var(--text-muted); background:rgba(0,0,0,0.03); padding:15px; border-radius:12px; text-align:center; border:1px dashed var(--border);"><i class="fas fa-lock"></i> 目前尚未開放上傳 (需先完成步驟 1)</div>`
                         }
                     </div>

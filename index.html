@@ -92,6 +92,20 @@
             </div>
         </section>
 
+        <!-- 2.5 傳辦人員專用統計區 (隱藏預設，僅角色符合時顯示) -->
+        <section id="deptStatsSection" class="hidden" style="margin-bottom: 32px;">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+                <div class="stat-card" style="flex-direction:column; align-items:flex-start; height:auto; gap:10px;">
+                    <div style="font-weight:800; color:var(--primary);"><i class="fas fa-search-location"></i> 工程統計 (查核與缺失次數)</div>
+                    <div id="projectStatsTable" style="width:100%; font-size:0.85rem; max-height:300px; overflow-y:auto;"></div>
+                </div>
+                <div class="stat-card" style="flex-direction:column; align-items:flex-start; height:auto; gap:10px;">
+                    <div style="font-weight:800; color:var(--success);"><i class="fas fa-history"></i> 近期結案進度 (查核日 vs 結案日)</div>
+                    <div id="caseDatesTable" style="width:100%; font-size:0.85rem; max-height:300px; overflow-y:auto;"></div>
+                </div>
+            </div>
+        </section>
+
         <!-- 3. 控制區塊：篩選與視圖切換 -->
         <section class="toolbar">
             <div class="toolbar-left">
