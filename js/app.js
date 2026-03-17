@@ -50,6 +50,46 @@ const app = {
         submitBtns.forEach(btn => btn.disabled = show);
     },
 
+    showGlobalProgress: (show, msg = "處理中...", percent = 0) => {
+        const overlay = document.getElementById('globalProgress');
+        const label = document.getElementById('gpLabel');
+        const bar = document.getElementById('gpBar');
+        const text = document.getElementById('gpText');
+        if (!overlay) return;
+        
+        if (show) {
+            label.innerText = msg;
+            bar.style.width = `${percent}%`;
+            text.innerText = `${Math.round(percent)}%`;
+            overlay.classList.remove('hidden');
+        } else {
+            overlay.classList.add('hidden');
+            // 重置
+            bar.style.width = '0%';
+            text.innerText = '0%';
+        }
+    },
+
+    copyToClipboard: (text) => {
+        navigator.clipboard.writeText(text).then(() => {
+            app.showToast("📋 已複製到剪貼簿");
+        }).catch(err => {
+            console.error('無法複製文字: ', err);
+            // Fallback
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                app.showToast("📋 已複製到剪貼簿(Fallback)");
+            } catch (err) {
+                app.showToast("複製失敗", "error");
+            }
+            document.body.removeChild(textArea);
+        });
+    },
+
     /** ======================== 初始化與身分驗證 ======================== */
     initAuth: () => {
         app.setTheme(app.state.theme);
@@ -778,92 +818,127 @@ const app = {
         const isSafety = (app.state.user.role === 'Admin' || app.state.user.role === 'SafetyUploader');
         const isDeptOwner = (app.state.user.role === 'DepartmentUploader' && c['主辦部門'] === app.state.user.department);
         const isAdmin = app.state.user.role === 'Admin';
+        const isLite = (app.state.user.role === 'DepartmentUploader');
 
-        // 構建分頁 HTML
-        let html = `
-            <div class="tabs-container">
-                <div class="tabs-header">
-                    <button class="tab-btn active" onclick="app.switchTab(event, 'tabFiles')"><i class="fas fa-folder-open"></i> 檔案管理</button>
-                    <button class="tab-btn" onclick="app.switchTab(event, 'tabDefs')"><i class="fas fa-list-ul"></i> 缺失項目</button>
+        // 歸檔路徑說明 HTML
+        const archivingHtml = `
+            <div style="margin-top:20px; border-top:1px solid var(--border); padding-top:15px;">
+                <div style="font-weight:700; font-size:0.85rem; color:var(--text-muted); margin-bottom:10px;"><i class="fas fa-archive"></i> 歸檔位置說明 (點擊圖示複製)</div>
+                <div class="archiving-path-card">
+                    <span><b>S2 原始單：</b>\\\\10.64.200.21\\d602\\部門資料夾\\d60269 工業安全衛生組\\開放區\\8 工安查核(表)</span>
+                    <i class="fas fa-copy copy-btn" onclick="app.copyToClipboard('\\\\\\\\10.64.200.21\\\\d602\\\\部門資料夾\\\\d60269 工業安全衛生組\\\\開放區\\\\8 工安查核(表)')"></i>
                 </div>
-
-                <!-- 分頁一：檔案管理 -->
-                <div id="tabFiles" class="tab-content active">
-                    <div style="margin-bottom:15px; padding:12px; background:rgba(99,102,241,0.05); border-radius:12px; font-size:0.8rem; border:1px solid rgba(99,102,241,0.1);">
-                        <i class="fas fa-info-circle"></i> 當前狀態：<b style="color:var(--primary);">${c['辦理狀態']}</b>
-                    </div>
-                    <div class="manage-grid">
-        `;
-
-        if (isAdmin) {
-            html += `
-                ${app.getUploadSection(id, 'stage2', 'S2 原始單', 'var(--warning)', '補傳/更換 Word 檔', !!c['第2階段連結'])}
-                ${app.getUploadSection(id, 'stage3', 'S3 核章版', '#fbbf24', '補傳或更換核章版', !!c['第3階段連結'])}
-                ${app.getUploadSection(id, 'stage4e', 'S4 結案(員工)', 'var(--success)', '補傳或更換員工版', !!c['第4階段連結-員工'])}
-                ${app.getUploadSection(id, 'stage4c', 'S4 結案(承)', 'var(--success)', '補傳或更換承攬商版', !!c['第4階段連結-承攬商'])}
-            `;
-        } else {
-            if (c['辦理狀態'] === '第1階段-已登錄' && isSafety) {
-                html += app.getUploadSection(id, 'stage2', 'S2 上傳原始單', 'var(--warning)', '', !!c['第2階段連結']);
-            } else if (c['辦理狀態'] === '第2階段-改善單已上傳' && (isSafety || isDeptOwner)) {
-                html += app.getUploadSection(id, 'stage3', 'S3 上傳核章版', '#fbbf24', '', !!c['第3階段連結']);
-            } else if (c['辦理狀態'] === '第3階段-工作隊版已處理' && isSafety) {
-                html += app.getUploadSection(id, 'stage4e', 'S4 上傳員工結案版', 'var(--success)', '', !!c['第4階段連結-員工']);
-                html += app.getUploadSection(id, 'stage4c', 'S4 上傳承攬商結案版', 'var(--success)', '', !!c['第4階段連結-承攬商']);
-            } else {
-                html += `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--text-muted);">目前無可上傳之權限或階段未達。</div>`;
-            }
-        }
-
-        html += `
-                    </div>
-                    ${(c['第2階段連結'] || c['第3階段連結'] || c['第4階段連結-員工'] || c['第4階段連結-承攬商']) ? `
-                    <div style="margin-top:15px; padding:12px; background:rgba(0,0,0,0.03); border-radius:12px; border:1px solid var(--border);">
-                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(80px, 1fr)); gap:8px;">
-                            ${c['第2階段連結'] ? `<a href="${c['第2階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-file-signature"></i> S2</a>` : ''}
-                            ${c['第3階段連結'] ? `<a href="${c['第3階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-stamp"></i> S3</a>` : ''}
-                            ${c['第4階段連結-員工'] ? `<a href="${c['第4階段連結-員工']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-user-check"></i> S4員</a>` : ''}
-                            ${c['第4階段連結-承攬商'] ? `<a href="${c['第4階段連結-承攬商']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-building-circle-check"></i> S4承</a>` : ''}
-                        </div>
-                    </div>` : ''}
-                    <button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="app.viewHistory('${id}')"><i class="fas fa-history"></i> 查看歷史紀錄</button>
-                </div>
-
-                <!-- 分頁二：缺失項目 -->
-                <div id="tabDefs" class="tab-content">
-                    <div class="modal-instruction" style="margin-bottom:10px;">
-                        <i class="fas fa-keyboard"></i> <b>填寫說明：</b> 每一行代表一項缺失。如有多項可直接換行輸入，系統將自動拆分為獨立項目。
-                    </div>
-                    <div id="caseDefsList" style="margin-bottom:15px; max-height:220px; overflow-y:auto; border:1px solid var(--border); border-radius:12px; padding:5px; background:rgba(0,0,0,0.01);">
-                        <!-- 加載該案件的缺失 -->
-                        <div style="text-align:center; padding:10px; color:var(--text-muted);">載入中...</div>
-                    </div>
-                    <div style="background:var(--bg-input); padding:15px; border-radius:14px; border:1px solid var(--border);">
-                        <div style="font-weight:700; margin-bottom:8px; font-size:0.85rem; color:var(--primary);">
-                            <i class="fas fa-plus-circle"></i> 快速新增缺失
-                        </div>
-                        <textarea id="caseDefContent" style="width:100%; height:80px; margin-bottom:10px; border-radius:8px;" placeholder="範例：&#10;1. 現場人員未戴安全帽&#10;2. 施工架下方未設置防護網..."></textarea>
-                        <div style="display:flex; gap:10px; align-items:center;">
-                            <div style="flex:1;">
-                                <label style="font-size:0.75rem; color:var(--text-muted); display:block; margin-bottom:4px;">改善期限</label>
-                                <input type="date" id="caseDefDeadline" value="${new Date().toISOString().split('T')[0]}" style="width:100%; font-size:0.8rem;">
-                            </div>
-                            <button class="btn btn-primary" onclick="app.submitDeficiencyFromCase('${id}', '${c['工程簡稱']}', '${c['主辦部門']}')" style="align-self: flex-end; padding:10px 20px;">
-                                <i class="fas fa-paper-plane"></i> 確認新增
-                            </button>
-                        </div>
-                    </div>
+                <div class="archiving-path-card">
+                    <span><b>S3, S4 核章/結案：</b>\\\\10.64.200.21\\d602\\部門資料夾\\d60269 工業安全衛生組\\部門共用區\\0.工安組線上公文查詢系統\\115年\\115年度--工安查核紀錄</span>
+                    <i class="fas fa-copy copy-btn" onclick="app.copyToClipboard('\\\\\\\\10.64.200.21\\\\d602\\\\部門資料夾\\\\d60269 工業安全衛生組\\\\部門共用區\\\\0.工安組線上公文查詢系統\\\\115年\\\\115年度--工安查核紀錄')"></i>
                 </div>
             </div>
         `;
 
-        const projInfo = app.state.projects.find(p => p.abbr === c['工程簡稱']);
-        const snLabel = projInfo ? `${projInfo.serial} - ` : '';
-        app.openModal(`案件管理: ${snLabel}${c['工程簡稱']}`, html);
+        if (isLite) {
+            // DepartmentUploader 的簡易任務導向介面
+            let liteHtml = `
+                <div class="lite-flow-container">
+                    <div style="padding:12px; background:rgba(99,102,241,0.05); border-radius:12px; border:1px solid var(--border); font-size:0.85rem; margin-bottom:10px;">
+                        案件：<b>${c['工程簡稱']}</b> | 狀態：<b style="color:var(--primary);">${c['辦理狀態']}</b>
+                    </div>
+                    
+                    <div class="lite-step-card ${c['第2階段連結'] ? 'active' : ''}">
+                        <span class="step-badge">任務 1</span>
+                        <h4><i class="fas fa-download"></i> 下載第 2 階段原始單</h4>
+                        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">請下載工安組上傳之原始文件進行後續複核。成果歸檔請參考下方路徑。</p>
+                        ${c['第2階段連結'] ? 
+                            `<a href="${c['第2階段連結']}" target="_blank" class="btn btn-primary" style="width:100%; justify-content:center;"><i class="fas fa-file-download"></i> 立即下載原始單</a>` : 
+                            `<div style="color:var(--warning); font-size:0.8rem; text-align:center;"><i class="fas fa-clock"></i> 工安組尚未上傳原始單</div>`
+                        }
+                    </div>
+
+                    <div class="lite-step-card ${(c['辦理狀態'] === '第2階段-改善單已上傳' || c['辦理狀態'] === '第3階段-工作隊版已處理') ? 'active' : ''}">
+                        <span class="step-badge">任務 2</span>
+                        <h4><i class="fas fa-upload"></i> 上傳第 3 階段核章版</h4>
+                        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:12px;">完成核章後，請在此上傳掃描檔。狀態必須為「第2階段」才可上傳。</p>
+                        ${(c['辦理狀態'] === '第2階段-改善單已上傳' || (c['辦理狀態'] === '第3階段-工作隊版已處理' && isDeptOwner)) ? 
+                            app.getUploadSection(id, 'stage3', '上傳核章版 PDF', '#fbbf24', '', !!c['第3階段連結']) : 
+                            `<div style="color:var(--text-muted); font-size:0.8rem; text-align:center; padding:10px; border:1px dashed var(--border); border-radius:8px;">階段未達或已完成，目前不需上傳</div>`
+                        }
+                    </div>
+
+                    ${archivingHtml}
+                    <button class="btn btn-outline" style="width:100%; margin-top:10px;" onclick="app.viewHistory('${id}')"><i class="fas fa-history"></i> 查看歷史紀錄</button>
+                </div>
+            `;
+            app.openModal('任務導向管理 - 傳辦人員專用', liteHtml);
+        } else {
+            // Admin / SafetyUploader 的完整管理介面
+            let html = `
+                <div class="tabs-container">
+                    <div class="tabs-header">
+                        <button class="tab-btn active" onclick="app.switchTab(event, 'tabFiles')"><i class="fas fa-folder-open"></i> 檔案管理</button>
+                        <button class="tab-btn" onclick="app.switchTab(event, 'tabDefs')"><i class="fas fa-list-ul"></i> 缺失項目</button>
+                    </div>
+
+                    <!-- 分頁一：檔案管理 -->
+                    <div id="tabFiles" class="tab-content active">
+                        <div style="margin-bottom:15px; padding:12px; background:rgba(99,102,241,0.05); border-radius:12px; font-size:0.8rem; border:1px solid rgba(99,102,241,0.1);">
+                            <i class="fas fa-info-circle"></i> 當前狀態：<b style="color:var(--primary);">${c['辦理狀態']}</b>
+                        </div>
+                        <div class="manage-grid">
+                            ${app.getUploadSection(id, 'stage2', 'S2 原始單', 'var(--warning)', '更換 Word 檔', !!c['第2階段連結'])}
+                            ${app.getUploadSection(id, 'stage3', 'S3 核章版', '#fbbf24', '更換核章版', !!c['第3階段連結'])}
+                            ${app.getUploadSection(id, 'stage4e', 'S4 結案(員工)', 'var(--success)', '更換員工版', !!c['第4階段連結-員工'])}
+                            ${app.getUploadSection(id, 'stage4c', 'S4 結案(承)', 'var(--success)', '更換承攬商版', !!c['第4階段連結-承攬商'])}
+                        </div>
+                        
+                        ${(c['第2階段連結'] || c['第3階段連結'] || c['第4階段連結-員工'] || c['第4階段連結-承攬商']) ? `
+                        <div style="margin-top:15px; padding:12px; background:rgba(0,0,0,0.03); border-radius:12px; border:1px solid var(--border);">
+                            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(80px, 1fr)); gap:8px;">
+                                ${c['第2階段連結'] ? `<a href="${c['第2階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-file-signature"></i> S2</a>` : ''}
+                                ${c['第3階段連結'] ? `<a href="${c['第3階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-stamp"></i> S3</a>` : ''}
+                                ${c['第4階段連結-員工'] ? `<a href="${c['第4階段連結-員工']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-user-check"></i> S4員</a>` : ''}
+                                ${c['第4階段連結-承攬商'] ? `<a href="${c['第4階段連結-承攬商']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-building-circle-check"></i> S4承</a>` : ''}
+                            </div>
+                        </div>` : ''}
+                        
+                        ${archivingHtml}
+                        <button class="btn btn-outline" style="width:100%; margin-top:20px;" onclick="app.viewHistory('${id}')"><i class="fas fa-history"></i> 查看歷史紀錄</button>
+                    </div>
+
+                    <!-- 分頁二：缺失項目 -->
+                    <div id="tabDefs" class="tab-content">
+                        <div class="modal-instruction" style="margin-bottom:10px;">
+                            <i class="fas fa-keyboard"></i> <b>填寫說明：</b> 每一行代表一項缺失。如有多項可直接換行輸入，系統將自動拆分為獨立項目。
+                        </div>
+                        <div id="caseDefsList" style="margin-bottom:15px; max-height:220px; overflow-y:auto; border:1px solid var(--border); border-radius:12px; padding:5px; background:rgba(0,0,0,0.01);">
+                            <!-- 加載該案件的缺失 -->
+                            <div style="text-align:center; padding:10px; color:var(--text-muted);">載入中...</div>
+                        </div>
+                        <div style="background:var(--bg-input); padding:15px; border-radius:14px; border:1px solid var(--border);">
+                            <div style="font-weight:700; margin-bottom:8px; font-size:0.85rem; color:var(--primary);">
+                                <i class="fas fa-plus-circle"></i> 快速新增缺失
+                            </div>
+                            <textarea id="caseDefContent" style="width:100%; height:80px; margin-bottom:10px; border-radius:8px;" placeholder="範例：&#10;1. 現場人員未戴安全帽&#10;2. 施工架下方未設置防護網..."></textarea>
+                            <div style="display:flex; gap:10px; align-items:center;">
+                                <div style="flex:1;">
+                                    <label style="font-size:0.75rem; color:var(--text-muted); display:block; margin-bottom:4px;">改善期限</label>
+                                    <input type="date" id="caseDefDeadline" value="${new Date().toISOString().split('T')[0]}" style="width:100%; font-size:0.8rem;">
+                                </div>
+                                <button class="btn btn-primary" onclick="app.submitDeficiencyFromCase('${id}', '${c['工程簡稱']}', '${c['主辦部門']}')" style="align-self: flex-end; padding:10px 20px;">
+                                    <i class="fas fa-paper-plane"></i> 確認新增
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            const projInfo = app.state.projects.find(p => p.abbr === c['工程簡稱']);
+            const snLabel = projInfo ? `${projInfo.serial} - ` : '';
+            app.openModal(`案件管理: ${snLabel}${c['工程簡稱']}`, html);
+        }
         
         // 延時載入缺失清單（確保 DOM 已渲染）
-        setTimeout(() => app.renderCaseDeficiencies(id), 100);
+        if (!isLite) setTimeout(() => app.renderCaseDeficiencies(id), 100);
     },
+
     switchTab: (e, tabId) => {
         const container = e.target.closest('.tabs-container');
         container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -1009,36 +1084,52 @@ const app = {
         } catch(e) { app.showToast(e.message, "error"); } finally { app.setModalLoading(false); }
     },
     getUploadSection: (id, stage, label, color, note = '', exists = false) => `
-        <div class="upload-section" style="border-left: 5px solid ${color || 'var(--border)'}; position:relative;">
-            ${exists ? `<span style="position:absolute; top:8px; right:8px; font-size:0.6rem; color:var(--success); background:rgba(16,185,129,0.1); padding:2px 6px; border-radius:4px;"><i class="fas fa-check"></i> 已存在 (點擊可抽換)</span>` : ''}
+        <div class="upload-section ${exists ? 'has-file' : ''}" style="border-left: 5px solid ${color || 'var(--border)'}; position:relative;">
+            ${exists ? `<span style="position:absolute; top:8px; right:8px; font-size:0.6rem; color:var(--success); background:rgba(16,185,129,0.1); padding:2px 6px; border-radius:4px;"><i class="fas fa-check"></i> 已存在</span>` : ''}
             <div class="upload-header" style="color:${color || 'inherit'}">
                 <i class="fas fa-cloud-upload-alt"></i> ${label}
             </div>
             ${note ? `<p class="upload-note">${note}</p>` : ''}
             <div class="upload-actions">
                 <input type="file" id="file_${stage}" style="width:100%; margin-bottom:12px; font-size:0.8rem;" />
-                <button class="btn" style="width:100%; justify-content:center; background:${color || 'var(--primary)'}; color:white;" onclick="app.submitFile('${id}', '${stage}')">
+                <button class="btn" style="width:100%; justify-content:center; background:${color || 'var(--primary)'}; color:white;" onclick="app.submitFile('${id}', '${stage}', ${exists})">
                     ${exists ? '替換現有檔案' : '確認上傳存檔'}
                 </button>
             </div>
         </div>
     `,
-    submitFile: async (id, stage) => {
+    submitFile: async (id, stage, isReplace = false) => {
         const input = document.getElementById(`file_${stage}`);
         if(!input.files.length) return app.showToast("請先選擇檔案", "error");
+        
+        let reason = "";
+        if (isReplace) {
+            reason = prompt("⚠️ 您正在替換現有檔案，請輸入更換原因：");
+            if (reason === null) return; // 使用者取消
+            reason = reason.trim();
+            if (!reason) return app.showToast("更換檔案必須輸入原因", "error");
+        }
+
         const file = input.files[0];
-        app.setModalLoading(true);
+        app.showGlobalProgress(true, "正在處理檔案...", 20);
+        
         try {
             const base64 = await app.fileToBase64(file);
-            await api.uploadFile(id, stage, base64, file.name, app.state.user.email);
+            app.showGlobalProgress(true, "檔案傳送中...", 60);
+            
+            await api.uploadFile(id, stage, base64, file.name, app.state.user.email, reason);
+            
+            app.showGlobalProgress(true, "同步資料中...", 90);
             const res = await api.init();
             app.state.cases = res.data.cases;
+            
+            app.showGlobalProgress(false);
             app.updateStats(); app.renderView(); app.closeModal();
             app.showToast("✅ 上傳成功");
+            alert("✅ 檔案已完成上傳並同步成功！");
         } catch(e) { 
+            app.showGlobalProgress(false);
             app.showToast(e.message, "error"); 
-        } finally {
-            app.setModalLoading(false);
         }
     },
     fileToBase64: (file) => new Promise((resolve) => {
