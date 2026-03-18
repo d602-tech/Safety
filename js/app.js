@@ -5,6 +5,30 @@
 const GOOGLE_CLIENT_ID = window.ENV && window.ENV.GOOGLE_CLIENT_ID ? window.ENV.GOOGLE_CLIENT_ID : "791038911460-8tfq97vhrvr4iaq5r3s1ti1abfpuddd9.apps.googleusercontent.com";
 
 const app = {
+    showLoading: (show) => {
+        const loader = document.getElementById('loading');
+        if (loader) show ? loader.classList.remove('hidden') : loader.classList.add('hidden');
+    },
+
+    openModal: (title, html) => {
+        const overlay = document.getElementById('modalOverlay');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBody = document.getElementById('modalBody');
+        const modal = document.querySelector('.modal');
+        
+        if (overlay && modalTitle && modalBody) {
+            modalTitle.innerText = title;
+            modalBody.innerHTML = html;
+            overlay.classList.remove('hidden');
+            if (modal) modal.classList.remove('modal-lg'); 
+        }
+    },
+
+    closeModal: () => {
+        const overlay = document.getElementById('modalOverlay');
+        if (overlay) overlay.classList.add('hidden');
+    },
+
     state: {
         user: null,
         cases: [],
