@@ -187,6 +187,7 @@ const app = {
         const btnProjMgmt = document.getElementById('btnProjMgmt');
         const btnAdminUsers = document.getElementById('btnAdminUsers');
         
+        // 先隱藏
         if (btnNew) btnNew.classList.add('hidden');
         if (btnRemind) btnRemind.classList.add('hidden');
         if (btnProjMgmt) btnProjMgmt.classList.add('hidden');
@@ -196,23 +197,40 @@ const app = {
         const workflow = document.querySelector('.workflow-section');
         const modeSwitch = document.querySelector('.mode-switch-wrapper');
         const deptStats = document.getElementById('deptStatsSection');
+        const btnExport = document.querySelector('button[onclick="app.exportToCSV()"]');
+        const btnExample = document.querySelector('button[onclick="app.downloadExample()"]');
+        const filterDept = document.getElementById('filterDepartment');
         
+        // 預設重置
         if (workflow) workflow.classList.remove('hidden');
         if (modeSwitch) modeSwitch.classList.remove('hidden');
         if (deptStats) deptStats.classList.add('hidden');
+        if (btnExport) btnExport.classList.remove('hidden');
+        if (btnExample) btnExample.classList.remove('hidden');
+        if (filterDept) filterDept.classList.remove('hidden');
 
-        if (!app.state.user) return;
+        const user = app.state.user;
+        const pathRef = document.getElementById('pathReferenceSection');
+        if (pathRef) pathRef.style.display = 'none';
 
-        if (app.state.user.role === 'DepartmentUploader') {
+        if (!user) return;
+
+        if (user.role === 'DepartmentUploader') {
             if (workflow) workflow.classList.add('hidden');
             if (modeSwitch) modeSwitch.classList.add('hidden');
             if (deptStats) deptStats.classList.remove('hidden');
+            
+            // 點對點極致精簡
+            if (btnExport) btnExport.classList.add('hidden');
+            if (btnExample) btnExample.classList.add('hidden');
+            if (filterDept) filterDept.classList.add('hidden');
         }
 
-        if ((app.state.user.role === 'Admin' || app.state.user.role === 'SafetyUploader') && btnNew) {
-            btnNew.classList.remove('hidden');
+        if (user.role === 'Admin' || user.role === 'SafetyUploader') {
+            if (btnNew) btnNew.classList.remove('hidden');
+            if (pathRef) pathRef.style.display = 'block';
         }
-        if (app.state.user.role === 'Admin') {
+        if (user.role === 'Admin') {
             if (btnRemind) btnRemind.classList.remove('hidden');
             if (btnProjMgmt) btnProjMgmt.classList.remove('hidden');
             if (btnAdminUsers) btnAdminUsers.classList.remove('hidden');
@@ -400,6 +418,17 @@ const app = {
         });
     },
 
+    copyToClipboard: (elementId) => {
+        const textToCopy = document.getElementById(elementId)?.innerText;
+        if (!textToCopy) return;
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            app.showToast("路徑已複製！", "success");
+        }).catch(err => {
+            console.error('Copy failed', err);
+            app.showToast("複製失敗，請手動選取複製", "error");
+        });
+    },
+
     exportToCSV: () => {
         const cases = app.getFilteredCases();
         if(!cases.length) return app.showToast("沒有資料可匯出", "error");
@@ -452,10 +481,28 @@ const app = {
             const projInfo = app.state.projects.find(p => p.abbr === c['工程簡稱']);
             const snLabel = projInfo ? `${projInfo.serial} - ` : '';
             const hasFiles = !!(c['第2階段連結'] || c['第3階段連結'] || c['第4階段連結-員工'] || c['第4階段連結-承攬商']);
+            
+            // 倒數計時區塊 (僅針對 DeptUploader 且未結案)
+            let countdownHtml = '';
+            if (app.state.user && app.state.user.role === 'DepartmentUploader' && !isClosed) {
+                const diffDays = Math.ceil((new Date(c['最晚應核章日期']) - new Date(todayStr)) / (1000 * 60 * 60 * 24));
+                const s2Url = c['第2階段連結'];
+                countdownHtml = `
+                    <div class="countdown-hero" style="margin-bottom:15px; cursor:pointer;" onclick="event.stopPropagation(); app.confirmS2Download('${s2Url}')">
+                        <div class="label">⏳ 離結案期限還剩</div>
+                        <div class="value" style="color:${diffDays <= 3 ? 'var(--danger)' : 'var(--warning)'}">${diffDays} 天</div>
+                        <div style="font-size:0.8rem; font-weight:700; background:var(--primary); color:white; padding:5px 12px; border-radius:20px; margin-top:5px;">
+                            <i class="fas fa-download"></i> 快速下載 S2 原始單
+                        </div>
+                    </div>
+                `;
+            }
+
             const card = document.createElement('div');
             card.className = `case-card ${hasFiles ? 'has-files' : ''}`;
             card.setAttribute('data-dept', c['主辦部門'] || '');
             card.innerHTML = `
+                ${countdownHtml}
                 <div class="card-header">
                     <h4 class="report-clickable" onclick="app.openManage('${c.id}')">${snLabel}${c['工程簡稱']}</h4>
                     <span class="badge ${isOverdue ? 'warning' : (isClosed ? 'success' : 'badge-status')}">${app.formatStatus(c['辦理狀態'])}</span>
@@ -830,7 +877,7 @@ const app = {
     },
 
     renderDeptStats: (deptCases) => {
-        const projStatsTable = document.getElementById('projectStatsTable');
+        const projStatsTable = document.getElementById('projStatsTable');
         const caseDatesTable = document.getElementById('caseDatesTable');
         if (!projStatsTable || !caseDatesTable) return;
 
@@ -840,7 +887,9 @@ const app = {
             const p = c['工程簡稱'];
             if (!projMap[p]) projMap[p] = { count: 0, defs: 0 };
             projMap[p].count++;
-            projMap[p].defs += app.state.deficiencies.filter(d => d.caseId === c.id).length;
+            // 修正統計邏輯：從 state 取得該案件的所有項目，不論狀態
+            const caseDefs = app.state.deficiencies.filter(d => d.caseId == c.id);
+            projMap[p].defs += caseDefs.length;
         });
 
         let projHtml = '<table style="width:100%; border-collapse:collapse;">';
@@ -1229,6 +1278,15 @@ const app = {
         const reader = new FileReader(); reader.readAsDataURL(file);
         reader.onload = () => resolve(reader.result.split(',')[1]);
     }),
+    confirmS2Download: (url) => {
+        if (!url) return app.showToast("原始單尚未準備好", "warning");
+        if (confirm("⚠️ 確認要下載此案件的 S2 檔案嗎？\n\n下載後請依規定時程辦理改善及核章。")) {
+            const link = document.createElement('a');
+            link.href = url;
+            link.target = "_blank";
+            link.click();
+        }
+    },
     viewHistory: async (id) => {
         try {
             const res = await api.getHistory(id);
