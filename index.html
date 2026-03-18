@@ -70,11 +70,11 @@
             <div id="pathReferenceSection" style="margin-bottom: 20px; display: none;">
                 <h4 style="margin:0 0 10px 0; font-size: 0.95rem; color:var(--primary);"><i class="fas fa-folder-open"></i> 檔案提取路徑</h4>
                 <div class="path-box">
-                    <span><b>S2 空白表單:</b> <span id="pathS2">\\\\10.64.200.21\\d602\\部門資料夾\\d60269 工業安全衛生組\\開放區\\8 工安查核(表)</span></span>
+                    <span><b>S2 空白表單:</b> <span id="pathS2">\\10.64.200.21\d602\部門資料夾\d60269 工業安全衛生組\開放區\8 工安查核(表)</span></span>
                     <button class="btn btn-outline btn-round" style="padding:4px 10px; font-size:0.75rem;" onclick="app.copyToClipboard('pathS2')"><i class="fas fa-copy"></i> 複製</button>
                 </div>
                 <div class="path-box">
-                    <span><b>S3, S4 結案報告:</b> <span id="pathS3">\\\\10.64.200.21\\d602\\部門資料夾\\d60269 工業安全衛生組\\部門共用區\\0.工安組線上公文查詢系統\\115年\\115年度--工安查核紀錄</span></span>
+                    <span><b>S3, S4 結案報告:</b> <span id="pathS3">\\10.64.200.21\d602\部門資料夾\d60269 工業安全衛生組\部門共用區\0.工安組線上公文查詢系統\115年\115年度--工安查核紀錄</span></span>
                     <button class="btn btn-outline btn-round" style="padding:4px 10px; font-size:0.75rem;" onclick="app.copyToClipboard('pathS3')"><i class="fas fa-copy"></i> 複製</button>
                 </div>
             </div>
@@ -106,7 +106,8 @@
             </div>
         </section>
 
-        <!-- 2.5 傳辦人員專用統計區 (隱藏預設，僅角色符合時顯示) -->
+        <!-- 2.5 經辦人員專用統計區 (隱藏預設，僅角色符合時顯示) -->
+
         <section id="deptStatsSection" class="hidden" style="margin-bottom: 32px;">
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
                 <div class="stat-card" style="flex-direction:column; align-items:flex-start; height:auto; gap:10px;">
@@ -124,13 +125,13 @@
         <section class="toolbar">
             <div class="toolbar-left">
                 <div class="filter-group">
-                    <select id="filterYear" onchange="app.renderView()">
+                    <select id="filterYear" onchange="app.renderView(); app.updateStats();">
                         <option value="">全部年度</option>
                     </select>
-                    <select id="filterDepartment" onchange="app.renderView()">
+                    <select id="filterDepartment" onchange="app.renderView(); app.updateStats();">
                         <option value="">全部工作隊</option>
                     </select>
-                    <select id="filterStatus" onchange="app.renderView()">
+                    <select id="filterStatus" onchange="app.renderView(); app.updateStats();">
                         <option value="">全部狀態</option>
                         <option value="第1階段-已登錄">第1階段</option>
                         <option value="第2階段-改善單已上傳">第2階段</option>

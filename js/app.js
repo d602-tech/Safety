@@ -361,6 +361,15 @@ const app = {
     },
 
     /** 取得案件 S1-S4 進度條 HTML */
+    getBadgeClass: (status) => {
+        if (!status) return 'badge-status';
+        if (status.includes('1')) return 'badge-status-s1';
+        if (status.includes('2')) return 'warning';
+        if (status.includes('3')) return 'badge-status-s3';
+        if (status.includes('4')) return 'success';
+        return 'badge-status';
+    },
+    
     getProgressHtml: (c) => {
         const s2 = !!c['第2階段連結'];
         const s3 = !!c['第3階段連結'];
@@ -492,6 +501,13 @@ const app = {
         document.body.removeChild(link);
     },
 
+    confirmS2Download: (url) => {
+        if (!url || url === 'undefined') return app.showToast('無法取得 S2 檔案連結', 'error');
+        if (confirm('確認要下載此案件的 S2 檔案嗎？')) {
+            window.open(url, '_blank');
+        }
+    },
+
     /** 1. 卡片視圖 */
     renderGrid: (cases) => {
         const container = document.getElementById('viewCasesGrid');
@@ -508,11 +524,13 @@ const app = {
             
             // 倒數計時區塊 (僅針對 DeptUploader 且未結案)
             let countdownHtml = '';
+            let isLargeDeptCard = false;
+            let s2Url = c['第2階段連結'];
             if (app.state.user && app.state.user.role === 'DepartmentUploader' && !isClosed) {
+                isLargeDeptCard = true;
                 const diffDays = Math.ceil((new Date(c['最晚應核章日期']) - new Date(todayStr)) / (1000 * 60 * 60 * 24));
-                const s2Url = c['第2階段連結'];
                 countdownHtml = `
-                    <div class="countdown-hero" style="margin-bottom:15px; cursor:pointer;" onclick="event.stopPropagation(); app.confirmS2Download('${s2Url}')">
+                    <div class="countdown-hero" style="margin-bottom:15px;" onclick="app.confirmS2Download('${s2Url}')">
                         <div class="label">⏳ 離結案期限還剩</div>
                         <div class="value" style="color:${diffDays <= 3 ? 'var(--danger)' : 'var(--warning)'}">${diffDays} 天</div>
                         <div style="font-size:0.8rem; font-weight:700; background:var(--primary); color:white; padding:5px 12px; border-radius:20px; margin-top:5px;">
@@ -523,13 +541,16 @@ const app = {
             }
 
             const card = document.createElement('div');
-            card.className = `case-card ${hasFiles ? 'has-files' : ''}`;
+            card.className = `case-card ${hasFiles ? 'has-files' : ''} ${isLargeDeptCard ? 'case-card-large' : ''}`;
+            if (isLargeDeptCard) {
+                card.setAttribute('onclick', `app.confirmS2Download('${s2Url}')`);
+            }
             card.setAttribute('data-dept', c['主辦部門'] || '');
             card.innerHTML = `
                 ${countdownHtml}
-                <div class="card-header">
+                <div class="card-header" onclick="event.stopPropagation()">
                     <h4 class="report-clickable" onclick="app.openManage('${c.id}')">${snLabel}${c['工程簡稱']}</h4>
-                    <span class="badge ${isOverdue ? 'warning' : (isClosed ? 'success' : 'badge-status')}">${app.formatStatus(c['辦理狀態'])}</span>
+                    <span class="badge ${isOverdue ? 'warning' : app.getBadgeClass(c['辦理狀態'])}">${app.formatStatus(c['辦理狀態'])}</span>
                 </div>
                 <div class="card-body">
                     <div class="info-row"><i class="fas fa-building"></i> ${c['主辦部門']}</div>
@@ -543,7 +564,7 @@ const app = {
                         </div>
                     `}
                 </div>
-                <div class="card-footer">
+                <div class="card-footer" onclick="event.stopPropagation()">
                     <button class="btn btn-primary" onclick="app.openManage('${c.id}')">管理</button>
                     <button class="btn btn-outline" onclick="app.viewHistory('${c.id}')"><i class="fas fa-history"></i></button>
                     ${isAdmin ? `<button class="btn btn-outline" style="color:var(--warning); border-color:var(--warning);" onclick="app.deleteCase('${c.id}')"><i class="fas fa-trash"></i></button>` : ''}
@@ -578,7 +599,7 @@ const app = {
                     ${app.getFileStatusHtml(c)}
                     ${app.getProgressHtml(c)}
                 </td>
-                <td><span class="badge ${c['辦理狀態'] === '第4階段-已結案' ? 'success' : 'badge-status'}">${app.formatStatus(c['辦理狀態'])}</span></td>
+                <td><span class="badge ${app.getBadgeClass(c['辦理狀態'])}">${app.formatStatus(c['辦理狀態'])}</span></td>
                 <td>
                     <div style="display:flex; gap:5px;">
                         <button class="btn btn-outline" onclick="app.openManage('${c.id}')">管理</button>
@@ -864,6 +885,11 @@ const app = {
         let cases = app.state.cases;
         const isDept = app.state.user && app.state.user.role === 'DepartmentUploader';
         
+        const yearFilter = document.getElementById('filterYear')?.value || '';
+        if (yearFilter) {
+            cases = cases.filter(c => c['查核日期'] && c['查核日期'].startsWith(yearFilter));
+        }
+
         if (isDept) {
             cases = cases.filter(c => c['主辦部門'] === app.state.user.department);
             app.renderDeptStats(cases);
@@ -1019,11 +1045,11 @@ const app = {
                         }
                     </div>
 
-                    <div class="lite-step-card ${(c['辦理狀態'] === '第2階段-改善單已上傳' || c['辦理狀態'] === '第3階段-工作隊版已處理') ? 'active' : ''}">
+                    <div class="lite-step-card ${c['第2階段連結'] ? 'active' : ''}">
                         <span class="step-badge">步驟 2</span>
                         <h4><i class="fas fa-file-pdf"></i> 上傳第 3 階段核章版</h4>
                         <p>完成現場改善並核章後，請將掃描後的 PDF 檔案在此回傳。系統將自動通知工安組結案。</p>
-                        ${(c['辦理狀態'] === '第2階段-改善單已上傳' || (c['辦理狀態'] === '第3階段-工作隊版已處理' && isDeptOwner)) ? 
+                        ${c['第2階段連結'] ? 
                             app.getUploadSection(id, 'stage3', !!c['第3階段連結'] ? '已上傳 - 點選可更換' : '立即上傳核章版 PDF', '#fbbf24', '', !!c['第3階段連結']) : 
                             `<div style="color:var(--text-muted); background:rgba(0,0,0,0.03); padding:15px; border-radius:12px; text-align:center; border:1px dashed var(--border);"><i class="fas fa-lock"></i> 目前尚未開放上傳 (需先完成步驟 1)</div>`
                         }
@@ -1033,7 +1059,7 @@ const app = {
                     <button class="btn btn-outline" style="width:100%; margin-top:10px; height:50px; justify-content:center;" onclick="app.viewHistory('${id}')"><i class="fas fa-history"></i> 查看此案件歷史紀錄</button>
                 </div>
             `;
-            app.openModal('傳辦人員作業中心', liteHtml);
+            app.openModal('經辦人員作業程序', liteHtml);
         } else {
             // Admin / SafetyUploader 的完整管理介面
             let html = `
@@ -1446,17 +1472,23 @@ const app = {
     openReportModal: () => {
         const projects = app.state.projects;
         const projectOptions = projects.map(p => `<option value="${p.abbr}">${p.abbr}</option>`).join('');
-        const now = new Date();
-        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+        const departments = Array.from(new Set(app.state.cases.map(c => c['主辦部門']).filter(Boolean)));
+        const deptOptions = departments.map(d => `<option value="${d}">${d}</option>`).join('');
 
-        app.openModal('生成統計與缺失查詢報告', `
+        app.openModal('統計與分析', `
             <div style="display:flex; flex-direction:column; gap:15px;">
                 <div class="report-field-group">
-                    <div><label>起始日期：</label><input type="date" id="reportStart" value="${firstDay}" style="width:100%;"></div>
-                    <div><label>結束日期：</label><input type="date" id="reportEnd" value="${lastDay}" style="width:100%;"></div>
+                    <div><label>起始日期：</label><input type="date" id="reportStart" value="" style="width:100%;"></div>
+                    <div><label>結束日期：</label><input type="date" id="reportEnd" value="" style="width:100%;"></div>
                 </div>
                 <div class="report-field-group">
+                    <div>
+                        <label>主辦部門：</label>
+                        <select id="reportDept" style="width:100%;">
+                            <option value="">-- 全部部門 --</option>
+                            ${deptOptions}
+                        </select>
+                    </div>
                     <div>
                         <label>篩選工程：</label>
                         <select id="reportProj" style="width:100%;">
@@ -1464,6 +1496,8 @@ const app = {
                             ${projectOptions}
                         </select>
                     </div>
+                </div>
+                <div class="report-field-group">
                     <div>
                         <label>結案狀態：</label>
                         <select id="reportStatus" style="width:100%;">
@@ -1472,10 +1506,10 @@ const app = {
                             <option value="進行中">僅列進行中</option>
                         </select>
                     </div>
-                </div>
-                <div>
-                    <label>缺失內容關鍵字查詢：</label>
-                    <input type="text" id="reportKeyword" placeholder="關鍵字 (如: 漏電, 安全帽...)" style="width:100%;">
+                    <div>
+                        <label>缺失內容關鍵字查詢：</label>
+                        <input type="text" id="reportKeyword" placeholder="關鍵字 (如: 漏電, 安全帽...)" style="width:100%;">
+                    </div>
                 </div>
                 <button class="btn btn-primary" onclick="app.runReport()" style="justify-content:center;">查詢並生成報告</button>
                 <div id="reportResult" class="hidden" style="margin-top:15px; border-top:1px solid var(--border); padding-top:15px;">
@@ -1489,6 +1523,7 @@ const app = {
     runReport: () => {
         const start = document.getElementById('reportStart').value;
         const end = document.getElementById('reportEnd').value;
+        const deptFilter = document.getElementById('reportDept').value;
         const projAbbr = document.getElementById('reportProj').value;
         const statusFilter = document.getElementById('reportStatus').value;
         const keyword = document.getElementById('reportKeyword').value.trim().toLowerCase();
@@ -1497,18 +1532,19 @@ const app = {
         let filteredCases = app.state.cases.filter(c => {
             const date = c['查核日期'];
             if (!date) return false;
-            const isDateMatch = date >= start && date <= end;
+            const isDateMatch = (!start || date >= start) && (!end || date <= end);
+            const isDeptMatch = deptFilter === '' || c['主辦部門'] === deptFilter;
             const isProjMatch = projAbbr === '' || c['工程簡稱'] === projAbbr;
             
             let isStatusMatch = true;
             if (statusFilter === '已結案') isStatusMatch = c['辦理狀態'] === '第4階段-已結案';
             if (statusFilter === '進行中') isStatusMatch = c['辦理狀態'] !== '第4階段-已結案';
 
-            return isDateMatch && isProjMatch && isStatusMatch;
+            return isDateMatch && isDeptMatch && isProjMatch && isStatusMatch;
         });
 
         // 2. 獲取篩選案件的缺失，並應用關鍵字過濾
-        let filteredDefs = app.state.deficiencies.filter(d => filteredCases.find(c => c.id === d.caseId));
+        let filteredDefs = app.state.deficiencies.filter(d => filteredCases.find(c => c.id == d.caseId));
         if (keyword) {
             filteredDefs = filteredDefs.filter(d => d.content.toLowerCase().includes(keyword));
             // 反向過濾案件：僅保留包含關鍵字缺失的案件
