@@ -1,5 +1,5 @@
 /**
- * 前端核心邏輯與狀態管理 v5.3
+ * 前端核心邏輯與狀態管理 v5.4
  */
 
 const GOOGLE_CLIENT_ID = window.ENV && window.ENV.GOOGLE_CLIENT_ID ? window.ENV.GOOGLE_CLIENT_ID : "791038911460-8tfq97vhrvr4iaq5r3s1ti1abfpuddd9.apps.googleusercontent.com";
