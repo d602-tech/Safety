@@ -19,6 +19,7 @@ const SHEET_SYSTEM_SETTINGS = '系統設定';
 const SHEET_ANNUAL_PLAN = '年度計畫';
 const SHEET_DEFICIENCY_DB = '缺失清單';
 const SHEET_USER_PERMISSIONS = '使用者權限';
+const SHEET_FILE_HISTORY = '檔案歷程';
 
 const STATUS = {
   STAGE1: '第1階段-已登錄',
@@ -141,7 +142,12 @@ function doPost(e) {
 
       case 'delete_case':
         if(roleData.role === 'DepartmentUploader') throw new Error("無權限執行此操作。");
-        result = deleteCase_(payload.caseId, payload.reason, payload.modifier);
+        result = deleteCase_(payload.caseId, payload.reason, roleData.email);
+        break;
+
+      case 'setup_system':
+        if(roleData.role !== 'Admin') throw new Error("唯有管理員可進行系統初始化。");
+        result = setupSystem_();
         break;
 
       case 'delete_deficiency':
@@ -584,12 +590,19 @@ function deleteCase_(caseId, reason, modifierName) {
     const data = sheet.getDataRange().getValues();
     const headers = data[0];
     const idIndex = headers.indexOf('案件ID');
+    const abbrIndex = headers.indexOf('工程簡稱');
     
     for (let i = 1; i < data.length; i++) {
-      if (data[i][idIndex] === caseId) {
+      if (data[i][idIndex] == caseId) {
         // Record deletion history
-        const historySheet = ss.getSheetByName(SHEET_FILE_HISTORY) || ss.insertSheet(SHEET_FILE_HISTORY);
+        const projectAbbr = abbrIndex !== -1 ? data[i][abbrIndex] : '未知';
         const reasonStr = reason ? `(理由: ${reason})` : '';
+        
+        // 使用統一紀錄函式
+        logChange_(caseId, projectAbbr, modifierName, "案件刪除", "已徹底刪除此案件 " + reasonStr, "", "");
+        
+        // 額外記錄到檔案歷程 (相容舊設計需求)
+        const historySheet = getOrCreateFileHistorySheet_();
         historySheet.appendRow([
           new Date(),
           modifierName,
@@ -603,13 +616,55 @@ function deleteCase_(caseId, reason, modifierName) {
         // Delete the row
         sheet.deleteRow(i + 1);
         
-        return { success: true, records: getAuditRecords_() };
+        return { success: true, message: "案件已刪除", records: getAuditRecords_() };
       }
     }
     return { success: false, message: "找不到指定的案件: " + caseId };
   } catch(e) {
     throw new Error("刪除案件失敗: " + e.message);
   }
+}
+
+/** 
+ * 系統初始化：自動生成所有必要的分頁與標題列
+ * 建議第一次使用或發現分頁遺失時執行一次
+ */
+function setupSystem_() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheetsToCreate = [
+    { name: SHEET_AUDIT_LIST, headers: ['案件ID', '查核日期', '工程名稱', '工程簡稱', '承攬商', '主辦部門', '最晚應核章日期', '辦理狀態', '查核人員', '修改人員', '結案日期', '查核領隊', '查核成員', '承辦人姓名', '承辦人電子信箱', '承辦課長職稱', '承辦課長電子信箱'], color: '#f3f4f6' },
+    { name: SHEET_PROJECT_DB, headers: ['流水號', '工程簡稱', '工程名稱', '承攬商', '主辦部門', '承辦人姓名', '承辦人電子信箱', '承辦課長職稱', '承辦課長電子信箱'], color: '#f3f4f6' },
+    { name: SHEET_DEFICIENCY_DB, headers: ['缺失ID', '案件ID', '工程簡稱', '缺失內容', '主辦部門', '改善期限', '狀態', '錄入者'], color: '#fef3c7' },
+    { name: SHEET_CHANGE_LOG, headers: ['修改日期', '案件ID', '工程簡稱', '修改人員', '狀態', '說明', '檔案名稱', '檔案位置'], color: '#eff6ff' },
+    { name: SHEET_FILE_HISTORY, headers: ['異動日期', '異動人員', '案件ID', '異動內容', '檔案類型', '檔案連結', '狀態'], color: '#d1fae5' },
+    { name: SHEET_USER_PERMISSIONS, headers: ['信箱 (Email)', '姓名 (Name)', '角色 (Role)', '所屬部門 (Department)', '啟用狀態 (Active)'], color: '#f3f4f6' }
+  ];
+
+  sheetsToCreate.forEach(cfg => {
+    let sheet = ss.getSheetByName(cfg.name);
+    if (!sheet) {
+      sheet = ss.insertSheet(cfg.name);
+    }
+    // 檢查標題列，若空白則寫入
+    if (sheet.getLastRow() === 0) {
+      sheet.getRange(1, 1, 1, cfg.headers.length).setValues([cfg.headers]).setBackground(cfg.color).setFontWeight('bold');
+      sheet.setFrozenRows(1);
+    }
+  });
+
+  return { success: true, message: "系統分頁與標題列初始化完成。" };
+}
+
+function getOrCreateFileHistorySheet_() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(SHEET_FILE_HISTORY);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_FILE_HISTORY);
+    const headers = [['異動日期', '異動人員', '案件ID', '異動內容', '檔案類型', '檔案連結', '狀態']];
+    sheet.getRange(1, 1, 1, headers[0].length).setValues(headers).setBackground('#d1fae5').setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
 }
 
 function getOverdueAuditSummary() {

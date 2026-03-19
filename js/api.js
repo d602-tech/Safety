@@ -88,5 +88,8 @@ const api = {
     getPublicCases: () => api.request('get_public_cases'),
 
     // 使用者管理
-    saveUser: (data) => api.request('save_user', data)
+    saveUser: (data) => api.request('save_user', data),
+
+    // 系統初始化
+    setupSystem: () => api.request('setup_system')
 };

@@ -168,6 +168,7 @@
                     <button id="btnDefList" class="btn btn-glass" onclick="app.toggleView('deficiencies')"><i class="fas fa-tasks"></i> 缺失清單</button>
                     <button id="btnProjMgmt" class="btn btn-glass" onclick="app.toggleView('projects')"><i class="fas fa-project-diagram"></i> 工程管理</button>
                     <button id="btnAdminUsers" class="btn btn-glass hidden" onclick="app.toggleView('users')"><i class="fas fa-users-cog"></i> 權限管理</button>
+                    <button id="btnInitSystem" class="btn btn-glass hidden" onclick="app.initSystem()" title="系統初始化：自動生成所有分頁與標題列"><i class="fas fa-magic"></i> 初始化系統</button>
                     <button id="btnBackToCases" class="btn btn-outline hidden" onclick="app.toggleView('cases')"><i class="fas fa-arrow-left"></i> 返回</button>
                     <button id="btnRemind" class="btn btn-warning hidden" onclick="app.triggerManualRemind()"><i class="fas fa-paper-plane"></i> 稽催</button>
                     <button id="btnNewCase" class="btn btn-primary" onclick="app.openNewCaseModal()"><i class="fas fa-plus"></i> 登錄查核</button>

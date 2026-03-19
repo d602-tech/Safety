@@ -298,6 +298,7 @@ const app = {
             if (btnRemind) btnRemind.classList.remove('hidden');
             if (btnProjMgmt) btnProjMgmt.classList.remove('hidden');
             if (btnAdminUsers) btnAdminUsers.classList.remove('hidden');
+            if (btnInitSystem) btnInitSystem.classList.remove('hidden');
         }
     },
 
@@ -1749,16 +1750,31 @@ const app = {
 
         if (!confirm(`您輸入的刪除理由為：「${reason.trim()}」\n確定要刪除此案件？此操作無法恢復！`)) return;
 
-        app.setModalLoading(true);
+        app.showLoading(true);
         try {
-            const res = await api.deleteCase(id, reason.trim(), app.state.user.name);
-            app.state.cases = res.records;
+            const res = await api.deleteCase(id, reason.trim());
+            app.state.cases = res.records || [];
             app.updateStats();
             app.renderView();
             app.showToast("案件已刪除");
         } catch (e) {
             app.showToast(e.message, "error");
-        } finally { app.setModalLoading(false); }
+        } finally { app.showLoading(false); }
+    },
+
+    initSystem: async () => {
+        if (!confirm("確定要初始化系統分頁嗎？\n這會檢查所有必要分頁是否齊全（如查核列表、檔案歷程等），並自動補上標題列。")) return;
+        app.showLoading(true);
+        try {
+            const res = await api.setupSystem();
+            if (res.success) {
+                app.showToast(res.message);
+            } else {
+                app.showToast(res.message, "error");
+            }
+        } catch (e) {
+            app.showToast("初始化失敗: " + e.message, "error");
+        } finally { app.showLoading(false); }
     },
 
     deleteDeficiency: async (id) => {
