@@ -80,6 +80,10 @@ function doPost(e) {
         result = registerInspection(payload);
         break;
 
+      case 'update_case':
+        result = updateCaseDetails(payload.caseId, payload.details, roleData.email);
+        break;
+
       case 'upload_file':
         result = uploadInspectionFile(
           { base64Data: payload.fileBase64, fileName: payload.fileName, mimeType: "application/pdf" }, 
@@ -311,6 +315,15 @@ function registerInspection(data) {
     const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_AUDIT_LIST);
     const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
 
+    // 初始化確保欄位存在
+    const requiredHeaders = ['案件ID', '查核日期', '工程名稱', '工程簡稱', '承攬商', '主辦部門', '最晚應核章日期', '辦理狀態', '查核人員', '修改人員', '結案日期', '查核領隊', '查核成員', '承辦人姓名', '承辦人電子信箱', '承辦課長職稱', '承辦課長電子信箱'];
+    requiredHeaders.forEach(function(req) {
+        if (headers.indexOf(req) === -1) {
+            headers.push(req);
+            sheet.getRange(1, headers.length).setValue(req);
+        }
+    });
+
     const caseId = new Date().getTime().toString() + Math.random().toString(36).substring(2, 8);
     const auditDate = new Date(data.auditDate);
     const dueDate = new Date(auditDate);
@@ -329,6 +342,12 @@ function registerInspection(data) {
         case '辦理狀態': newRow[header] = STATUS.STAGE1; break;
         case '查核人員': newRow[header] = data.inspector; break;
         case '修改人員': newRow[header] = data.modifier; break;
+        case '查核領隊': newRow[header] = data.auditLeader; break;
+        case '查核成員': newRow[header] = data.auditMembers; break;
+        case '承辦人姓名': newRow[header] = data.contractorName; break;
+        case '承辦人電子信箱': newRow[header] = data.contractorEmail; break;
+        case '承辦課長職稱': newRow[header] = data.contractorManagerTitle; break;
+        case '承辦課長電子信箱': newRow[header] = data.contractorManagerEmail; break;
         default: newRow[header] = "";
       }
     });
@@ -339,6 +358,52 @@ function registerInspection(data) {
     return { success: true, message: "案件登錄成功！", records: getAuditRecords_() };
   } catch (e) {
     throw new Error("案件登錄失敗: " + e.message);
+  }
+}
+
+/**
+ * 更新案件資料 (結案日期與人員等)
+ */
+function updateCaseDetails(caseId, details, modifier) {
+  try {
+    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_AUDIT_LIST);
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    
+    // 初始化確保欄位存在
+    const requiredHeaders = ['案件ID', '查核日期', '工程名稱', '工程簡稱', '承攬商', '主辦部門', '最晚應核章日期', '辦理狀態', '查核人員', '修改人員', '結案日期', '查核領隊', '查核成員', '承辦人姓名', '承辦人電子信箱', '承辦課長職稱', '承辦課長電子信箱'];
+    requiredHeaders.forEach(function(req) {
+        if (headers.indexOf(req) === -1) {
+            headers.push(req);
+            sheet.getRange(1, headers.length).setValue(req);
+        }
+    });
+
+    const caseIdCol = headers.indexOf('案件ID');
+    if (caseIdCol === -1) throw new Error('找不到案件ID欄位。');
+
+    const caseIds = sheet.getRange(2, caseIdCol + 1, sheet.getLastRow() - 1, 1).getValues().flat();
+    const rowIdx = caseIds.findIndex(function(id) { return id == caseId; }) + 2;
+    if (rowIdx < 2) throw new Error('找不到對應的案件ID: ' + caseId);
+
+    const projectAbbr = sheet.getRange(rowIdx, headers.indexOf('工程簡稱') + 1).getValue();
+
+    // 更新指定的欄位
+    if (details.inspector !== undefined) sheet.getRange(rowIdx, headers.indexOf('查核人員') + 1).setValue(details.inspector);
+    if (details.auditLeader !== undefined) sheet.getRange(rowIdx, headers.indexOf('查核領隊') + 1).setValue(details.auditLeader);
+    if (details.auditMembers !== undefined) sheet.getRange(rowIdx, headers.indexOf('查核成員') + 1).setValue(details.auditMembers);
+    if (details.contractorName !== undefined) sheet.getRange(rowIdx, headers.indexOf('承辦人姓名') + 1).setValue(details.contractorName);
+    if (details.contractorEmail !== undefined) sheet.getRange(rowIdx, headers.indexOf('承辦人電子信箱') + 1).setValue(details.contractorEmail);
+    if (details.contractorManagerTitle !== undefined) sheet.getRange(rowIdx, headers.indexOf('承辦課長職稱') + 1).setValue(details.contractorManagerTitle);
+    if (details.contractorManagerEmail !== undefined) sheet.getRange(rowIdx, headers.indexOf('承辦課長電子信箱') + 1).setValue(details.contractorManagerEmail);
+    if (details.closeDate !== undefined) sheet.getRange(rowIdx, headers.indexOf('結案日期') + 1).setValue(details.closeDate ? new Date(details.closeDate) : "");
+
+    sheet.getRange(rowIdx, headers.indexOf('修改人員') + 1).setValue(modifier);
+    
+    logChange_(caseId, projectAbbr, modifier, '資料更新', '修改案件人員與結案資料', '', '');
+    
+    return { success: true, message: "案件資料已更新", records: getAuditRecords_() };
+  } catch (e) {
+    throw new Error("更新失敗: " + e.message);
   }
 }
 
@@ -768,8 +833,20 @@ function getAuditRecords_() {
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_AUDIT_LIST);
   if (sheet.getLastRow() <= 1) return [];
 
-  const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  let headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+
+  // 自動補齊欄位，保障所有的存取都能有這些標題
+  const requiredHeaders = ['案件ID', '查核日期', '工程名稱', '工程簡稱', '承攬商', '主辦部門', '最晚應核章日期', '辦理狀態', '查核人員', '修改人員', '結案日期', '查核領隊', '查核成員', '承辦人姓名', '承辦人電子信箱', '承辦課長職稱', '承辦課長電子信箱'];
+  let headersAppended = false;
+  requiredHeaders.forEach(function(req) {
+      if (headers.indexOf(req) === -1) {
+          headers.push(req);
+          sheet.getRange(1, headers.length).setValue(req);
+          headersAppended = true;
+      }
+  });
+
+  const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
   const caseIdCol = headers.indexOf('案件ID');
 
   return values.map(function(row, index) {

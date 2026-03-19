@@ -48,6 +48,9 @@ const api = {
     // 2. 登錄新案件
     createCase: (data) => api.request('create_case', data),
     
+    // 更新案件資訊
+    updateCase: (caseId, details, modifierName) => api.request('update_case', { caseId, details, modifier: modifierName }),
+    
     // 刪除案件
     deleteCase: (id) => api.request('delete_case', { id }),
 

@@ -138,6 +138,7 @@ const app = {
 
         // 未登入狀態下先抓取預設公開資料
         if (!app.state.user) {
+            app.state.quickFilter = 'active'; // 預設顯示未結案
             app.fetchPublicData();
         }
     },
@@ -175,6 +176,7 @@ const app = {
             document.getElementById('userNameDisplay').innerText = `${app.state.user.email}`;
             document.getElementById('logoutBtn').classList.remove('hidden');
 
+            app.state.quickFilter = 'active'; // 登入後預設顯示未結案
             app.applyRoleRestrictions();
             app.extractYears();
             app.extractDepartments();
@@ -522,27 +524,43 @@ const app = {
             const snLabel = projInfo ? `${projInfo.serial} - ` : '';
             const hasFiles = !!(c['第2階段連結'] || c['第3階段連結'] || c['第4階段連結-員工'] || c['第4階段連結-承攬商']);
             
-            // 倒數計時區塊 (僅針對 DeptUploader 且未結案)
+            // 倒數計時區塊 (針對 DeptUploader 或 未登入訪客 且未結案)
             let countdownHtml = '';
             let isLargeDeptCard = false;
             let s2Url = c['第2階段連結'];
-            if (app.state.user && app.state.user.role === 'DepartmentUploader' && !isClosed) {
+            const isGuest = !app.state.user;
+            const isDept = app.state.user && app.state.user.role === 'DepartmentUploader';
+
+            if ((isDept || isGuest) && !isClosed) {
                 isLargeDeptCard = true;
                 const diffDays = Math.ceil((new Date(c['最晚應核章日期']) - new Date(todayStr)) / (1000 * 60 * 60 * 24));
-                countdownHtml = `
-                    <div class="countdown-hero" style="margin-bottom:15px;" onclick="app.confirmS2Download('${s2Url}')">
-                        <div class="label">⏳ 離結案期限還剩</div>
-                        <div class="value" style="color:${diffDays <= 3 ? 'var(--danger)' : 'var(--warning)'}">${diffDays} 天</div>
+                
+                let downloadBtnHtml = '';
+                if (isDept) {
+                    downloadBtnHtml = `
                         <div style="font-size:0.8rem; font-weight:700; background:var(--primary); color:white; padding:5px 12px; border-radius:20px; margin-top:5px;">
                             <i class="fas fa-download"></i> 快速下載 S2 原始單
-                        </div>
+                        </div>`;
+                }
+
+                countdownHtml = `
+                    <div class="countdown-hero" style="margin-bottom:15px;" ${isDept ? `onclick="app.confirmS2Download('${s2Url}')"` : ''}>
+                        <div class="label">⏳ 離結案期限還剩</div>
+                        <div class="value" style="color:${diffDays <= 3 ? 'var(--danger)' : 'var(--warning)'}">${diffDays} 天</div>
+                        ${downloadBtnHtml}
                     </div>
                 `;
             }
 
+            let stageClass = 'stage-s1';
+            let statusStr = c['辦理狀態'] || '';
+            if (statusStr.includes('4')) stageClass = 'stage-s4';
+            else if (statusStr.includes('3')) stageClass = 'stage-s3';
+            else if (statusStr.includes('2')) stageClass = 'stage-s2';
+            
             const card = document.createElement('div');
-            card.className = `case-card ${hasFiles ? 'has-files' : ''} ${isLargeDeptCard ? 'case-card-large' : ''}`;
-            if (isLargeDeptCard) {
+            card.className = `case-card ${hasFiles ? 'has-files' : ''} ${isLargeDeptCard ? 'case-card-large' : ''} ${stageClass}`;
+            if (isDept) {
                 card.setAttribute('onclick', `app.confirmS2Download('${s2Url}')`);
             }
             card.setAttribute('data-dept', c['主辦部門'] || '');
@@ -556,7 +574,11 @@ const app = {
                     <div class="info-row"><i class="fas fa-building"></i> ${c['主辦部門']}</div>
                     <div class="info-row"><i class="fas fa-hard-hat"></i> ${c['承攬商']}</div>
                     <div class="info-row"><i class="fas fa-calendar-alt"></i> 查核：${c['查核日期']}</div>
+                    <div class="info-row"><i class="fas fa-user-tie"></i> 人員：${c['查核人員'] || '無'}</div>
+                    ${c['承辦人姓名'] ? `<div class="info-row"><i class="fas fa-user"></i> 承辦：${c['承辦人姓名']} <span style="font-size:0.75rem;">${c['承辦人電子信箱'] ? '('+c['承辦人電子信箱']+')' : ''}</span></div>` : ''}
+                    ${c['承辦課長職稱'] ? `<div class="info-row"><i class="fas fa-user-shield"></i> 課長：${c['承辦課長職稱']} <span style="font-size:0.75rem;">${c['承辦課長電子信箱'] ? '('+c['承辦課長電子信箱']+')' : ''}</span></div>` : ''}
                     <div class="info-row" style="${isOverdue ? 'color:var(--warning);font-weight:700;' : ''}"><i class="fas fa-clock"></i> 限辦：${c['最晚應核章日期']}</div>
+                    ${c['結案日期'] ? `<div class="info-row" style="color:var(--success);font-weight:700;"><i class="fas fa-check"></i> 結案：${new Date(c['結案日期']).toISOString().split('T')[0]}</div>` : ''}
                     
                     ${app.state.systemMode === 'progress' ? app.getProgressHtml(c) : `
                         <div style="margin-top:10px; padding:10px; background:rgba(0,0,0,0.03); border-radius:10px; font-size:0.8rem;">
@@ -931,13 +953,16 @@ const app = {
         const caseDatesTable = document.getElementById('caseDatesTable');
         if (!projStatsTable || !caseDatesTable) return;
 
+        const currentYear = new Date().getFullYear().toString();
+        // 1. 工程統計與近期結案進度皆只顯示「當年度」數據
+        const yearDeptCases = deptCases.filter(c => c['查核日期'] && c['查核日期'].startsWith(currentYear));
+
         // 1. 工程統計
         const projMap = {};
-        deptCases.forEach(c => {
+        yearDeptCases.forEach(c => {
             const p = c['工程簡稱'];
             if (!projMap[p]) projMap[p] = { count: 0, defs: 0 };
             projMap[p].count++;
-            // 修正統計邏輯：從 state 取得該案件的所有項目，不論狀態
             const caseDefs = app.state.deficiencies.filter(d => d.caseId == c.id);
             projMap[p].defs += caseDefs.length;
         });
@@ -950,10 +975,10 @@ const app = {
         projHtml += '</table>';
         projStatsTable.innerHTML = projHtml;
 
-        // 2. 查核日 vs 結案日
+        // 2. 查核日 vs 結案日 (今年度數據)
         let dateHtml = '<table style="width:100%; border-collapse:collapse;">';
         dateHtml += '<tr style="border-bottom:1px solid var(--border); color:var(--text-muted);"><th>日期</th><th>工程</th><th>狀態</th></tr>';
-        deptCases.slice(0, 15).forEach(c => {
+        yearDeptCases.slice(0, 15).forEach(c => {
             const isClosed = c['辦理狀態'] === '第4階段-已結案';
             dateHtml += `<tr style="border-bottom:1px solid var(--border);">
                 <td style="padding:8px 0;">${c['查核日期']}</td>
@@ -1067,6 +1092,7 @@ const app = {
                     <div class="tabs-header">
                         <button class="tab-btn active" onclick="app.switchTab(event, 'tabFiles')"><i class="fas fa-folder-open"></i> 檔案管理</button>
                         <button class="tab-btn" onclick="app.switchTab(event, 'tabDefs')"><i class="fas fa-list-ul"></i> 缺失項目</button>
+                        <button class="tab-btn" onclick="app.switchTab(event, 'tabInfo')"><i class="fas fa-edit"></i> 編輯案件資料</button>
                     </div>
 
                     <!-- 分頁一：檔案管理 -->
@@ -1120,6 +1146,33 @@ const app = {
                             </div>
                         </div>
                     </div>
+                    </div>
+                    
+                    <!-- 分頁三：編輯案件資料 -->
+                    <div id="tabInfo" class="tab-content" style="max-height:60vh; overflow-y:auto; padding:5px;">
+                        <h4 style="margin:0 0 10px 0; color:var(--primary); border-bottom:1px solid var(--border); padding-bottom:5px;">查核人員資訊</h4>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
+                            <div><label>查核人員</label><input type="text" id="editInspector" value="${c['查核人員']||''}"></div>
+                            <div><label>查核領隊</label><input type="text" id="editAuditLeader" value="${c['查核領隊']||''}"></div>
+                            <div style="grid-column:1/-1"><label>查核成員</label><input type="text" id="editAuditMembers" value="${c['查核成員']||''}"></div>
+                        </div>
+
+                        <h4 style="margin:0 0 10px 0; color:var(--primary); border-bottom:1px solid var(--border); padding-bottom:5px;">承辦聯絡資訊</h4>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
+                            <div><label>承辦人姓名</label><input type="text" id="editContractorName" value="${c['承辦人姓名']||''}"></div>
+                            <div><label>承辦人電子信箱</label><input type="text" id="editContractorEmail" value="${c['承辦人電子信箱']||''}"></div>
+                            <div><label>承辦課長職稱</label><input type="text" id="editContractorManagerTitle" value="${c['承辦課長職稱']||''}"></div>
+                            <div><label>承辦課長電子信箱</label><input type="text" id="editContractorManagerEmail" value="${c['承辦課長電子信箱']||''}"></div>
+                        </div>
+
+                        <h4 style="margin:0 0 10px 0; color:var(--danger); border-bottom:1px solid var(--border); padding-bottom:5px;">案件狀態資訊</h4>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
+                            <div><label>結案日期</label><input type="date" id="editCloseDate" value="${c['結案日期'] ? new Date(c['結案日期']).toISOString().split('T')[0] : ''}"></div>
+                        </div>
+
+                        <button class="btn btn-primary" style="width:100%; justify-content:center; margin-top:10px;" onclick="app.submitEditCaseInfo('${id}')">儲存資料變更</button>
+                    </div>
+
                 </div>
             `;
             const projInfo = app.state.projects.find(p => p.abbr === c['工程簡稱']);
@@ -1137,6 +1190,31 @@ const app = {
         container.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         e.target.classList.add('active');
         document.getElementById(tabId).classList.add('active');
+    },
+    submitEditCaseInfo: async (caseId) => {
+        const details = {
+            inspector: document.getElementById('editInspector').value.trim(),
+            auditLeader: document.getElementById('editAuditLeader').value.trim(),
+            auditMembers: document.getElementById('editAuditMembers').value.trim(),
+            contractorName: document.getElementById('editContractorName').value.trim(),
+            contractorEmail: document.getElementById('editContractorEmail').value.trim(),
+            contractorManagerTitle: document.getElementById('editContractorManagerTitle').value.trim(),
+            contractorManagerEmail: document.getElementById('editContractorManagerEmail').value.trim(),
+            closeDate: document.getElementById('editCloseDate').value || null
+        };
+
+        app.setModalLoading(true);
+        try {
+            const res = await api.updateCase(caseId, details, app.state.user.email);
+            app.state.cases = res.records;
+            app.updateStats();
+            app.renderView();
+            app.showToast("✅ 案件資料更新成功");
+        } catch (e) {
+            app.showToast(e.message, "error");
+        } finally {
+            app.setModalLoading(false);
+        }
     },
     renderCaseDeficiencies: (caseId) => {
         const listDiv = document.getElementById('caseDefsList');
@@ -1357,17 +1435,56 @@ const app = {
     },
     openNewCaseModal: () => {
         let options = app.state.projects.map(p => `<option value="${p.abbr}">${p.serial} - ${p.abbr} - ${p.name}</option>`).join('');
-        app.openModal('登錄查核案件', `<div style="display:flex;flex-direction:column;gap:15px;"><div>工程：<select id="newProj" style="width:100%">${options}</select></div><div>日期：<input type="date" id="newDate" value="${new Date().toISOString().split('T')[0]}"></div><button class="btn btn-primary" onclick="app.submitNewCase()">確認登錄</button></div>`);
+        const html = `
+            <div style="display:flex;flex-direction:column;gap:15px; max-height:65vh; overflow-y:auto; padding:5px;">
+                <div><label>工程：</label><select id="newProj" style="width:100%">${options}</select></div>
+                <div><label>日期：</label><input type="date" id="newDate" value="${new Date().toISOString().split('T')[0]}" style="width:100%"></div>
+                
+                <h4 style="margin:10px 0 0 0; color:var(--primary); border-bottom:1px solid var(--border); padding-bottom:5px;">查核人員資訊</h4>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <div><label>查核領隊</label><input type="text" id="newAuditLeader" placeholder="例如：王小明"></div>
+                    <div><label>查核成員</label><input type="text" id="newAuditMembers" placeholder="例如：陳大毛"></div>
+                </div>
+
+                <h4 style="margin:10px 0 0 0; color:var(--primary); border-bottom:1px solid var(--border); padding-bottom:5px;">承辦聯絡資訊</h4>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                    <div><label>承辦人姓名</label><input type="text" id="newContractorName" placeholder="例如：李四"></div>
+                    <div><label>承辦人電子信箱</label><input type="email" id="newContractorEmail" placeholder="li@example.com"></div>
+                    <div><label>承辦課長職稱</label><input type="text" id="newContractorManagerTitle" placeholder="例如：張課長"></div>
+                    <div><label>承辦課長電子信箱</label><input type="email" id="newContractorManagerEmail" placeholder="zhang@example.com"></div>
+                </div>
+
+                <button class="btn btn-primary" style="margin-top:10px; justify-content:center;" onclick="app.submitNewCase()">確認登錄</button>
+            </div>
+        `;
+        app.openModal('登錄查核案件', html);
     },
     submitNewCase: async () => {
         const pAbbr = document.getElementById('newProj').value; 
         const date = document.getElementById('newDate').value;
+        const auditLeader = document.getElementById('newAuditLeader').value.trim();
+        const auditMembers = document.getElementById('newAuditMembers').value.trim();
+        const contractorName = document.getElementById('newContractorName').value.trim();
+        const contractorEmail = document.getElementById('newContractorEmail').value.trim();
+        const contractorManagerTitle = document.getElementById('newContractorManagerTitle').value.trim();
+        const contractorManagerEmail = document.getElementById('newContractorManagerEmail').value.trim();
+
         if (!pAbbr || !date) return app.showToast("工程與日期為必填", "error");
         
         app.setModalLoading(true);
         const pInfo = app.state.projects.find(p => p.abbr === pAbbr);
         try { 
-            const res = await api.createCase({ ...pInfo, auditDate: date }); 
+            const payload = { 
+                ...pInfo, 
+                auditDate: date,
+                auditLeader,
+                auditMembers,
+                contractorName,
+                contractorEmail,
+                contractorManagerTitle,
+                contractorManagerEmail
+            };
+            const res = await api.createCase(payload); 
             app.state.cases = res.records; 
             app.updateStats(); app.renderView(); app.closeModal(); 
             app.showToast("✅ 案件登錄成功"); 

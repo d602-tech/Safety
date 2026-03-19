@@ -32,6 +32,10 @@ function doPost(e) {
         result = registerInspection(payload);
         break;
 
+      case 'update_case':
+        result = updateCaseDetails(payload.caseId, payload.details, payload.modifier);
+        break;
+
       case 'upload_file':
         result = uploadInspectionFile(
           { base64Data: payload.fileBase64, fileName: payload.fileName, mimeType: "application/pdf" /* 需動態 */ }, 

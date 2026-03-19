@@ -355,10 +355,17 @@ body {
 .badge.warning { background: var(--warning); color: white; }
 
 /* 部門/工作隊色彩 */
-.case-card[data-dept*="工安"] { border-left: 5px solid var(--primary); }
-.case-card[data-dept*="工務"] { border-left: 5px solid var(--info); }
-.case-card[data-dept*="變電"] { border-left: 5px solid #fbbf24; }
-.case-card[data-dept*="電纜"] { border-left: 5px solid #8b5cf6; }
+/* 部門/工作隊色彩 (保留給無特定狀態時的 fallback 效果) */
+.case-card[data-dept*="工安"] { border-top: 4px solid var(--primary); }
+.case-card[data-dept*="工務"] { border-top: 4px solid var(--info); }
+.case-card[data-dept*="變電"] { border-top: 4px solid #fbbf24; }
+.case-card[data-dept*="電纜"] { border-top: 4px solid #8b5cf6; }
+
+/* 案件階段色彩 (更明顯的辨識度) */
+.case-card.stage-s1 { border-left: 6px solid #64748b; }
+.case-card.stage-s2 { border-left: 6px solid var(--warning); background: linear-gradient(135deg, var(--bg-card) 0%, rgba(244, 63, 94, 0.05) 100%); }
+.case-card.stage-s3 { border-left: 6px solid var(--info); background: linear-gradient(135deg, var(--bg-card) 0%, rgba(59, 130, 246, 0.05) 100%); }
+.case-card.stage-s4 { border-left: 6px solid var(--success); opacity: 0.9; }
 
 /* 管理模態框排版優化 */
 .manage-grid {
@@ -503,6 +510,14 @@ input[type="file"]:hover { border-color: var(--primary); }
 .modal {
     background: var(--bg-main); border: 1px solid var(--border); width: 95%; max-width: 550px;
     border-radius: 24px; padding: 32px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+}
+.modal-body {
+    overflow-y: auto;
+    flex: 1;
+    padding-right: 5px; /* 給予滾動條一點空間 */
 }
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
 .modal-header h3 { margin: 0; font-size: 1.35rem; font-weight: 800; }
