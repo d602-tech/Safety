@@ -1277,152 +1277,108 @@ input[type="file"]:hover { border-color: var(--primary); }
     flex-shrink: 0;
 }
 
-/* =============== 訪客登陸頁 =============== */
-.guest-landing {
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    padding: 0 20px 60px;
-    min-height: calc(100vh - 60px);
+/* ======================== Guest Page ======================== */
+.guest-page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px 16px 60px;
 }
-.guest-landing.active { display: flex; }
 
 .guest-hero {
     text-align: center;
-    padding: 60px 20px 40px;
-    width: 100%;
-    max-width: 600px;
+    padding: 60px 20px 50px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
 }
-.guest-hero-icon {
-    font-size: 3.5rem;
-    color: var(--primary);
-    margin-bottom: 20px;
-    animation: float 3s ease-in-out infinite;
-}
-@keyframes float {
-    0%,100% { transform: translateY(0); }
-    50% { transform: translateY(-12px); }
-}
-.guest-hero h1 {
-    font-size: 2.2rem;
+
+.guest-title {
+    font-size: 2.4rem;
     font-weight: 900;
-    background: linear-gradient(135deg, var(--primary), #818cf8, #6366f1);
+    background: linear-gradient(135deg, var(--primary) 0%, #a78bfa 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    margin: 0 0 8px;
+    margin: 0;
 }
+
 .guest-subtitle {
-    font-size: 0.95rem;
+    font-size: 1.05rem;
     color: var(--text-muted);
-    margin: 0 0 30px;
-    letter-spacing: 0.05em;
+    max-width: 480px;
+    line-height: 1.6;
+    margin: 0;
 }
-.guest-login-area {
+
+.guest-actions {
     display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
     justify-content: center;
-    margin-bottom: 10px;
+    margin-top: 8px;
 }
 
 .guest-section-title {
     font-size: 1.1rem;
     font-weight: 800;
     color: var(--text-main);
-    margin: 30px 0 16px;
-    text-align: center;
+    padding: 0 4px 16px;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 24px;
     display: flex;
     align-items: center;
-    gap: 8px;
-    justify-content: center;
+    gap: 10px;
 }
-.guest-section-title i { color: var(--primary); }
 
-.guest-cards-grid {
+.guest-cases-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
     gap: 20px;
-    width: 100%;
-    max-width: 1000px;
 }
 
 .guest-case-card {
     background: var(--bg-card);
+    border-radius: 20px;
     border: 1px solid var(--border);
-    border-radius: 18px;
     padding: 24px;
+    box-shadow: var(--shadow);
+    transition: var(--transition);
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    transition: var(--transition);
-    position: relative;
-    overflow: hidden;
 }
-.guest-case-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, var(--primary), var(--info));
-}
+
 .guest-case-card:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 30px rgba(99,102,241,0.15);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
 }
-.guest-case-card.overdue::before {
-    background: linear-gradient(90deg, var(--danger), var(--warning));
-}
-.guest-card-title {
-    font-size: 1.05rem;
+
+.guest-case-name {
+    font-size: 1.2rem;
     font-weight: 800;
     color: var(--text-main);
+    margin-bottom: 10px;
 }
-.guest-card-info {
-    font-size: 0.82rem;
+
+.guest-case-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.85rem;
     color: var(--text-muted);
+}
+
+.guest-case-meta span {
     display: flex;
     align-items: center;
     gap: 8px;
 }
-.guest-card-info i { width: 16px; text-align: center; }
 
-.guest-countdown {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    margin-top: 4px;
-}
-.guest-countdown-num {
-    font-size: 2.4rem;
-    font-weight: 900;
-    line-height: 1;
-    color: var(--warning);
-}
-.guest-countdown-label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-muted);
-}
-.guest-case-card.overdue .guest-countdown-num { color: var(--danger); }
-.guest-case-card.critical { animation: pulse-red 1.2s ease-in-out infinite; }
-.guest-case-card.urgent { animation: pulse-orange 2s ease-in-out infinite; }
-
-.guest-download-area {
-    display: flex;
-    justify-content: center;
-    margin: 10px 0 30px;
-}
-.btn-lg { font-size: 1.05rem; padding: 14px 32px; }
-
-.guest-footer {
-    margin-top: auto;
-    padding: 40px 0 0;
-    font-size: 0.8rem;
-    color: var(--text-muted);
+.guest-empty {
     text-align: center;
-    opacity: 0.6;
-}
-
-@media (max-width: 640px) {
-    .guest-hero h1 { font-size: 1.6rem; }
-    .guest-cards-grid { grid-template-columns: 1fr; }
+    padding: 60px;
+    font-size: 1.2rem;
+    color: var(--success);
+    font-weight: 700;
 }

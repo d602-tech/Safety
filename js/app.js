@@ -136,67 +136,11 @@ const app = {
             { theme: app.state.theme === 'light' ? 'outline' : 'filled_blue', size: "large", shape: "pill" }
         );
 
-        // 訪客登陸頁也渲染登入按鈕
-        const guestLoginEl = document.getElementById('googleLoginBtnGuest');
-        if (guestLoginEl) {
-            google.accounts.id.renderButton(
-                guestLoginEl,
-                { theme: app.state.theme === 'light' ? 'outline' : 'filled_blue', size: "large", shape: "pill", width: 280 }
-            );
-        }
-
-        // 未登入狀態：顯示訪客頁，隱藏主系統
+        // 未登入狀態下先抓取預設公開資料
         if (!app.state.user) {
-            app.showGuestLanding(true);
+            app.state.quickFilter = 'active'; // 預設顯示未結案
             app.fetchPublicData();
         }
-    },
-
-    showGuestLanding: (show) => {
-        const guestLanding = document.getElementById('guestLanding');
-        const mainContainer = document.querySelector('.main-container');
-        if (show) {
-            if (guestLanding) guestLanding.classList.add('active');
-            if (mainContainer) mainContainer.style.display = 'none';
-        } else {
-            if (guestLanding) guestLanding.classList.remove('active');
-            if (mainContainer) mainContainer.style.display = '';
-        }
-    },
-
-    renderGuestCards: () => {
-        const container = document.getElementById('guestCaseCards');
-        if (!container) return;
-        const todayStr = new Date().toISOString().split('T')[0];
-        const activeCases = app.state.cases.filter(c => c['辦理狀態'] !== '第4階段-已結案');
-
-        if (!activeCases.length) {
-            container.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:var(--text-muted);">\u2615 目前沒有進行中的案件</div>';
-            return;
-        }
-
-        container.innerHTML = '';
-        activeCases.sort((a, b) => (a['最晚應核章日期'] || '').localeCompare(b['最晚應核章日期'] || '')).forEach(c => {
-            const diffDays = Math.ceil((new Date(c['最晚應核章日期']) - new Date(todayStr)) / (1000 * 60 * 60 * 24));
-            const isOverdue = diffDays <= 0;
-            const isCritical = diffDays <= 3;
-            const isUrgent = diffDays <= 7;
-            const urgencyClass = isOverdue ? 'overdue critical' : isCritical ? 'overdue urgent' : isUrgent ? 'urgent' : '';
-
-            const card = document.createElement('div');
-            card.className = `guest-case-card ${urgencyClass}`;
-            card.innerHTML = `
-                <div class="guest-card-title">${c['工程簡稱']}</div>
-                <div class="guest-card-info"><i class="fas fa-building"></i> ${c['主辦部門']}</div>
-                <div class="guest-card-info"><i class="fas fa-hard-hat"></i> ${c['承攬商']}</div>
-                <div class="guest-card-info"><i class="fas fa-calendar-alt"></i> 限辦：${c['最晚應核章日期']}</div>
-                <div class="guest-countdown">
-                    <span class="guest-countdown-num">${isOverdue ? '已逾期' : diffDays}</span>
-                    <span class="guest-countdown-label">${isOverdue ? '' : '天'}</span>
-                </div>
-            `;
-            container.appendChild(card);
-        });
     },
 
     fetchPublicData: async () => {
@@ -205,7 +149,10 @@ const app = {
             const res = await api.getPublicCases();
             app.state.cases = res.data.cases || [];
             app.state.projects = res.data.projects || [];
-            app.renderGuestCards();
+            app.extractYears();
+            app.extractDepartments();
+            app.updateStats();
+            app.renderView();
         } catch (e) {
             console.error("無法載入預設資料", e);
         } finally {
@@ -229,8 +176,7 @@ const app = {
             document.getElementById('userNameDisplay').innerText = `${app.state.user.email}`;
             document.getElementById('logoutBtn').classList.remove('hidden');
 
-            app.showGuestLanding(false);
-            app.state.quickFilter = 'active';
+            app.state.quickFilter = 'active'; // 登入後預設顯示未結案
             app.applyRoleRestrictions();
             app.extractYears();
             app.extractDepartments();
@@ -259,8 +205,8 @@ const app = {
         document.getElementById('logoutBtn').classList.add('hidden');
         document.getElementById('googleLoginBtn').classList.remove('hidden');
         app.toggleView('cases');
-        app.showGuestLanding(true);
-        app.fetchPublicData();
+        app.applyRoleRestrictions();
+        app.fetchPublicData(); // 登出後切換回訪客資料
     },
 
     applyRoleRestrictions: () => {
@@ -302,17 +248,29 @@ const app = {
         const pathRef = document.getElementById('pathReferenceSection');
         if (pathRef) pathRef.style.display = 'none';
 
-        // 未登入訪客模式：精簡到最小
+        // 未登入訪客模式
         if (!user) {
             if (workflow) workflow.classList.add('hidden');
             if (modeSwitch) modeSwitch.classList.add('hidden');
             if (btnExport) btnExport.classList.add('hidden');
             if (filterDept) filterDept.classList.add('hidden');
             if (filterStatus) filterStatus.classList.add('hidden');
+            if (filterYear) filterYear.classList.add('hidden');
             if (dashboard) dashboard.classList.add('hidden');
             if (toolbarSection) toolbarSection.classList.add('hidden');
+            // 切換到訪客專屬畫面
+            const guestView = document.getElementById('guestView');
+            const mainView = document.getElementById('mainView');
+            if (guestView) guestView.classList.remove('hidden');
+            if (mainView) mainView.classList.add('hidden');
+            app.renderGuestView();
             return;
         }
+        // 登入後確保切回主画面
+        const guestView = document.getElementById('guestView');
+        const mainView = document.getElementById('mainView');
+        if (guestView) guestView.classList.add('hidden');
+        if (mainView) mainView.classList.remove('hidden');
 
         if (user.role === 'DepartmentUploader') {
             if (workflow) workflow.classList.add('hidden');
@@ -334,7 +292,70 @@ const app = {
         }
     },
 
-    /** ======================== UI 功能切換 ======================== */
+    renderGuestView: () => {
+        const container = document.getElementById('guestView');
+        if (!container) return;
+        const todayStr = new Date().toISOString().split('T')[0];
+        const activeCases = app.state.cases.filter(c => c['辦理狀態'] !== '第4階段-已結案');
+
+        const caseCards = activeCases.map(c => {
+            const diffDays = Math.ceil((new Date(c['最晚應核章日期']) - new Date(todayStr)) / (1000 * 60 * 60 * 24));
+            const isOverdue = diffDays <= 0;
+            const isCritical = diffDays <= 3;
+            const isUrgent = diffDays <= 7;
+            const urgencyClass = isCritical ? 'countdown-critical' : isUrgent ? 'countdown-urgent' : '';
+            const urgencyColor = isCritical ? 'var(--danger)' : isUrgent ? '#f97316' : 'var(--warning)';
+            return `
+                <div class="guest-case-card ${urgencyClass}" style="border-top: 4px solid ${urgencyColor};">
+                    <div class="guest-case-name">${c['工程簡稱']}</div>
+                    <div class="guest-case-meta">
+                        <span><i class="fas fa-building"></i> ${c['主辦部門']}</span>
+                        <span><i class="fas fa-hard-hat"></i> ${c['承攬商']}</span>
+                    </div>
+                    <div class="countdown-hero ${urgencyClass}" style="margin-top:12px;">
+                        <div class="label">⏳ 離最晚核章期限</div>
+                        <div class="countdown-days">${isOverdue ? '已逾期' : diffDays + ' 天'}</div>
+                        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">${c['最晚應核章日期']}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = `
+            <div class="guest-page">
+                <!-- Hero 登入區塊 -->
+                <div class="guest-hero">
+                    <div style="font-size:3rem;">🛡️</div>
+                    <h1 class="guest-title">工安查核管理系統</h1>
+                    <p class="guest-subtitle">查看即時查核進度與結案倒數。登入後可管理案件與上傳檔案。</p>
+                    <div class="guest-actions">
+                        <div id="guestLoginBtn" style="display:inline-block;"></div>
+                        <button class="btn btn-outline" style="border-radius:50px; padding:10px 28px; font-size:1rem;" onclick="app.openBlankFormsModal()">
+                            <i class="fas fa-file-download"></i> 空白表單下載
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 未結案案件倶數卡片 -->
+                <div class="guest-section-title">
+                    <i class="fas fa-clock"></i> 目前進行中案件 (${activeCases.length} 項)
+                </div>
+                ${activeCases.length === 0 
+                    ? '<div class="guest-empty">✅ 所有案件均已結案</div>'
+                    : `<div class="guest-cases-grid">${caseCards}</div>`
+                }
+            </div>
+        `;
+
+        // 在 guestView 裡回度渲染 Google Login 按鈕
+        const btnEl = document.getElementById('guestLoginBtn');
+        if (btnEl && window.google) {
+            google.accounts.id.renderButton(btnEl, {
+                theme: app.state.theme === 'light' ? 'outline' : 'filled_blue',
+                size: 'large', shape: 'pill', text: 'signin_with'
+            });
+        }
+    },
     
     setTheme: (theme) => {
         app.state.theme = theme;
