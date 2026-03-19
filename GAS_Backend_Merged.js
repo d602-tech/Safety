@@ -121,6 +121,11 @@ function doPost(e) {
         result = addProject_(payload);
         break;
 
+      case 'update_project':
+        if(roleData.role === 'DepartmentUploader') throw new Error("無權限執行此操作。");
+        result = updateProject_(payload.serial, payload);
+        break;
+
       case 'delete_project':
         if(roleData.role !== 'Admin') throw new Error("無權限執行此操作。");
         result = deleteProject_(payload.serial);
@@ -135,8 +140,8 @@ function doPost(e) {
         break;
 
       case 'delete_case':
-        if(roleData.role !== 'Admin') throw new Error("無權限執行此操作。");
-        result = deleteCase_(payload.id);
+        if(roleData.role === 'DepartmentUploader') throw new Error("無權限執行此操作。");
+        result = deleteCase_(payload.caseId, payload.reason, payload.modifier);
         break;
 
       case 'delete_deficiency':
@@ -571,6 +576,42 @@ function getFileHistory(caseId) {
 
 // ==================== 郵件系統 ====================
 
+/** 刪除案件邏輯：刪除該列並紀錄 */
+function deleteCase_(caseId, reason, modifierName) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(SHEET_AUDIT_LIST);
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idIndex = headers.indexOf('案件ID');
+    
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][idIndex] === caseId) {
+        // Record deletion history
+        const historySheet = ss.getSheetByName(SHEET_FILE_HISTORY) || ss.insertSheet(SHEET_FILE_HISTORY);
+        const reasonStr = reason ? `(理由: ${reason})` : '';
+        historySheet.appendRow([
+          new Date(),
+          modifierName,
+          caseId,
+          "案件刪除 " + reasonStr,
+          "系統紀錄",
+          "",
+          "已刪除"
+        ]);
+        
+        // Delete the row
+        sheet.deleteRow(i + 1);
+        
+        return { success: true, records: getAuditRecords_() };
+      }
+    }
+    return { success: false, message: "找不到指定的案件: " + caseId };
+  } catch(e) {
+    throw new Error("刪除案件失敗: " + e.message);
+  }
+}
+
 function getOverdueAuditSummary() {
     try {
         const overdueData = getOverdueData_();
@@ -649,9 +690,24 @@ function checkAndSendNotifications() {
 function getProjectOptions_() {
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_PROJECT_DB);
   if (!sheet || sheet.getLastRow() < 2) return [];
-  const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 5).getValues();
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const reqHeaders = ['流水號', '工程簡稱', '工程名稱', '承攬商', '主辦部門', '承辦人姓名', '承辦人電子信箱', '承辦課長職稱', '承辦課長電子信箱'];
+  
+  if (headers.length < 9) {
+    reqHeaders.forEach(req => {
+      if (headers.indexOf(req) === -1) {
+        headers.push(req);
+        sheet.getRange(1, headers.length).setValue(req);
+      }
+    });
+  }
+
+  const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 9).getValues();
   return data.map(function (row) {
-    return { serial: row[0], abbr: row[1], name: row[2], contractor: row[3], department: row[4] };
+    return { 
+      serial: row[0], abbr: row[1], name: row[2], contractor: row[3], department: row[4],
+      contractorName: row[5] || '', contractorEmail: row[6] || '', contractorManagerTitle: row[7] || '', contractorManagerEmail: row[8] || ''
+    };
   }).filter(function (p) { return p.abbr; });
 }
 
@@ -660,11 +716,36 @@ function addProject_(p) {
   let sheet = ss.getSheetByName(SHEET_PROJECT_DB);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_PROJECT_DB);
-    sheet.appendRow(['流水號', '工程簡稱', '工程名稱', '承攬商', '主辦部門']);
+    sheet.appendRow(['流水號', '工程簡稱', '工程名稱', '承攬商', '主辦部門', '承辦人姓名', '承辦人電子信箱', '承辦課長職稱', '承辦課長電子信箱']);
   }
   const serial = 'P' + new Date().getTime();
-  sheet.appendRow([serial, p.abbr, p.name, p.contractor, p.department]);
+  sheet.appendRow([
+    serial, p.abbr, p.name, p.contractor, p.department, 
+    p.contractorName || '', p.contractorEmail || '', p.contractorManagerTitle || '', p.contractorManagerEmail || ''
+  ]);
   return { success: true, projects: getProjectOptions_() };
+}
+
+function updateProject_(serial, updatedData) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(SHEET_PROJECT_DB);
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] == serial) {
+      sheet.getRange(i + 1, 2, 1, 8).setValues([[
+        updatedData.abbr, 
+        updatedData.name, 
+        updatedData.contractor, 
+        updatedData.department,
+        updatedData.contractorName || '',
+        updatedData.contractorEmail || '',
+        updatedData.contractorManagerTitle || '',
+        updatedData.contractorManagerEmail || ''
+      ]]);
+      return { success: true, projects: getProjectOptions_() };
+    }
+  }
+  return { success: false, message: "找不到該工程項目" };
 }
 
 function deleteProject_(serial) {

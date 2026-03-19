@@ -52,9 +52,12 @@ const api = {
     updateCase: (caseId, details, modifierName) => api.request('update_case', { caseId, details, modifier: modifierName }),
     
     // 刪除案件
-    deleteCase: (id) => api.request('delete_case', { id }),
+    deleteCase: (id, reason, modifierName) => api.request('delete_case', { caseId: id, reason, modifier: modifierName }),
 
-    // 3. 上傳檔案 (支援 base64)
+    // 專案管理
+    addProject: (projectData) => api.request('add_project', projectData),
+    updateProject: (projectData) => api.request('update_project', projectData),
+    deleteProject: (serial) => api.request('delete_project', { serial }),
     uploadFile: (caseId, stage, fileBase64, fileName, modifierName) =>
         api.request('upload_file', { caseId, stage, fileBase64, fileName, modifier: modifierName }),
 
