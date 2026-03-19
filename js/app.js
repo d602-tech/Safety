@@ -558,19 +558,23 @@ const app = {
             if ((isDept || isGuest) && !isClosed) {
                 isLargeDeptCard = true;
                 const diffDays = Math.ceil((new Date(c['最晚應核章日期']) - new Date(todayStr)) / (1000 * 60 * 60 * 24));
+                const isUrgent = diffDays <= 7;
+                const isCritical = diffDays <= 3;
+                const urgencyClass = isCritical ? 'countdown-critical' : isUrgent ? 'countdown-urgent' : '';
                 
                 let downloadBtnHtml = '';
                 if (isDept) {
                     downloadBtnHtml = `
-                        <div style="font-size:0.8rem; font-weight:700; background:var(--primary); color:white; padding:5px 12px; border-radius:20px; margin-top:5px;">
+                        <div style="font-size:0.8rem; font-weight:700; background:var(--primary); color:white; padding:5px 12px; border-radius:20px; margin-top:5px; cursor:pointer;">
                             <i class="fas fa-download"></i> 快速下載 S2 原始單
                         </div>`;
                 }
 
                 countdownHtml = `
-                    <div class="countdown-hero" style="margin-bottom:15px;" ${isDept ? `onclick="app.confirmS2Download('${s2Url}')"` : ''}>
+                    <div class="countdown-hero ${urgencyClass}" style="margin-bottom:15px;" ${isDept ? `onclick="app.confirmS2Download('${s2Url}')"` : ''}>
                         <div class="label">⏳ 離結案期限還剩</div>
-                        <div class="value" style="color:${diffDays <= 3 ? 'var(--danger)' : 'var(--warning)'}">${diffDays} 天</div>
+                        <div class="value countdown-days">${diffDays > 0 ? diffDays : '0'} 天</div>
+                        ${diffDays <= 0 ? '<div style="color:var(--danger); font-size:0.8rem; font-weight:700;">⚠️ 已逾期！</div>' : ''}
                         ${downloadBtnHtml}
                     </div>
                 `;
@@ -1056,7 +1060,9 @@ const app = {
             const p = c['工程簡稱'];
             if (!projMap[p]) projMap[p] = { count: 0, defs: 0 };
             projMap[p].count++;
-            const caseDefs = app.state.deficiencies.filter(d => d.caseId == c.id);
+            // 強制轉字串比較，避免 caseId 型別不符
+            const cid = String(c.id);
+            const caseDefs = app.state.deficiencies.filter(d => String(d.caseId) === cid);
             projMap[p].defs += caseDefs.length;
         });
 

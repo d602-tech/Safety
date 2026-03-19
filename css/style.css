@@ -300,16 +300,53 @@ body {
 
 .countdown-hero {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 1.25rem;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 1.1rem;
     font-weight: 800;
     color: var(--warning);
     background: rgba(245, 158, 11, 0.1);
-    padding: 10px 16px;
-    border-radius: 12px;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    padding: 12px 18px;
+    border-radius: 14px;
     margin-bottom: 16px;
-    width: fit-content;
+}
+
+.countdown-hero .label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+}
+
+.countdown-hero .countdown-days {
+    font-size: 2.2rem;
+    font-weight: 900;
+    color: var(--warning);
+    line-height: 1;
+}
+
+.countdown-hero.countdown-urgent {
+    background: rgba(249, 115, 22, 0.12);
+    border-color: rgba(249, 115, 22, 0.4);
+    animation: pulse-orange 2s ease-in-out infinite;
+}
+.countdown-hero.countdown-urgent .countdown-days { color: #f97316; }
+
+.countdown-hero.countdown-critical {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.5);
+    animation: pulse-red 1s ease-in-out infinite;
+}
+.countdown-hero.countdown-critical .countdown-days { color: var(--danger); }
+
+@keyframes pulse-orange {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.3); }
+    50% { box-shadow: 0 0 0 8px rgba(249, 115, 22, 0); }
+}
+@keyframes pulse-red {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+    50% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
 }
 
 .case-card:hover { transform: translateY(-6px); border-color: var(--primary); }
