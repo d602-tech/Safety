@@ -837,17 +837,6 @@ function deleteDeficiency_(id) {
   throw new Error("找不到該缺失紀錄: " + id);
 }
 
-function deleteCase_(id) {
-  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_AUDIT_LIST);
-  const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues().flat();
-  const rowIdx = data.indexOf(id);
-  if (rowIdx > -1) {
-    sheet.deleteRow(rowIdx + 2);
-    return { success: true, records: getAuditRecords_() };
-  }
-  throw new Error("找不到該案件: " + id);
-}
-
 function saveUser_(payload) {
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);

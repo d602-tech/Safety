@@ -804,8 +804,11 @@ const app = {
         `);
     },
     openEditProjModal: (serial) => {
-        const p = app.state.projects.find(proj => proj.serial === serial);
-        if (!p) return;
+        const p = app.state.projects.find(proj => proj.serial == serial);
+        if (!p) {
+            app.showToast("找不到工程項目資料", "error");
+            return;
+        }
         app.openModal('編輯工程項目與承辦資訊', `
             <div style="display:flex;flex-direction:column;gap:15px; max-height:70vh; overflow-y:auto; padding:5px;">
                 <input type="text" id="editPAbbr" value="${p.abbr}" placeholder="工程簡稱">
@@ -985,8 +988,10 @@ const app = {
         }
 
         if (isDept) {
-            cases = cases.filter(c => c['主辦部門'] === app.state.user.department);
-            app.renderDeptStats(cases, yearFilter);
+            // renderDeptStats 需要從原始 state 拿到部門的所有案件，再由自身依 year 過濾統計
+            const allDeptCases = app.state.cases.filter(c => c['主辦部門'] === app.state.user.department);
+            cases = allDeptCases.filter(c => !yearFilter || (c['查核日期'] && c['查核日期'].startsWith(yearFilter)));
+            app.renderDeptStats(allDeptCases, yearFilter);
         }
 
         document.getElementById('stat-total').innerText = cases.length;
@@ -1025,10 +1030,12 @@ const app = {
         const caseDatesTable = document.getElementById('caseDatesTable');
         if (!projStatsTable || !caseDatesTable) return;
 
-        // 1. 工程統計與近期結案進度皆只顯示當年度的所有次數
-        const yearDeptCases = deptCases;
+        // 依年份篩選（currentYear 空則為全部年份）
+        const yearDeptCases = currentYear
+            ? deptCases.filter(c => c['查核日期'] && c['查核日期'].startsWith(currentYear))
+            : deptCases;
 
-        // 1. 工程統計
+        // 工程統計：每工程查核次數 + 缺失次數
         const projMap = {};
         yearDeptCases.forEach(c => {
             const p = c['工程簡稱'];
@@ -1046,19 +1053,22 @@ const app = {
         projHtml += '</table>';
         projStatsTable.innerHTML = projHtml;
 
-        // 2. 查核日 vs 結案日 (今年度數據)
+        // 查核日 vs 結案日（所選年度全部，依查核日期排序）
         let dateHtml = '<table style="width:100%; border-collapse:collapse;">';
-        dateHtml += '<tr style="border-bottom:1px solid var(--border); color:var(--text-muted);"><th>日期</th><th>工程</th><th>狀態</th></tr>';
-        yearDeptCases.forEach(c => {
+        dateHtml += '<tr style="border-bottom:1px solid var(--border); color:var(--text-muted);"><th>查核日</th><th>工程</th><th>狀態</th><th>結案日</th></tr>';
+        [...yearDeptCases].sort((a,b) => (a['查核日期'] || '').localeCompare(b['查核日期'] || '')).forEach(c => {
             const isClosed = c['辦理狀態'] === '第4階段-已結案';
+            const closeDateStr = c['結案日期'] ? new Date(c['結案日期']).toISOString().split('T')[0] : '-';
             dateHtml += `<tr style="border-bottom:1px solid var(--border);">
-                <td style="padding:8px 0;">${c['查核日期']}</td>
+                <td style="padding:6px 0;">${c['查核日期']}</td>
                 <td>${c['工程簡稱']}</td>
-                <td style="color:${isClosed ? 'var(--success)' : 'var(--warning)'}">${isClosed ? '已結案' : '處理中'}</td>
+                <td style="color:${isClosed ? 'var(--success)' : 'var(--warning)'}; font-weight:700;">${isClosed ? '已結案' : '進行中'}</td>
+                <td style="color:var(--success);">${closeDateStr}</td>
             </tr>`;
         });
         dateHtml += '</table>';
         caseDatesTable.innerHTML = dateHtml;
+
     },
     extractDepartments: () => {
         const depts = new Set(app.state.cases.map(c => c['主辦部門']).filter(Boolean));
@@ -1589,9 +1599,11 @@ const app = {
     },
 
     deleteCase: async (id) => {
-        const reason = prompt("確定要刪除此案件？此操作不可恢復！\\n請輸入刪除理由記錄至歷程：");
+        const reason = prompt("請先輸入案件刪除理由（記錄至歷程）：");
         if (reason === null) return;
         if (!reason.trim()) return app.showToast("刪除案件必須輸入理由", "error");
+
+        if (!confirm(`您輸入的刪除理由為：「${reason.trim()}」\n確定要刪除此案件？此操作無法恢復！`)) return;
 
         app.setModalLoading(true);
         try {
