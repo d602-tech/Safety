@@ -139,6 +139,7 @@ const app = {
         // 未登入狀態下先抓取預設公開資料
         if (!app.state.user) {
             app.state.quickFilter = 'active'; // 預設顯示未結案
+            app.applyRoleRestrictions(); // 關鍵：確保初始化時就套用角色限制（包含訪客模式）
             app.fetchPublicData();
         }
     },
@@ -151,6 +152,7 @@ const app = {
             app.state.projects = res.data.projects || [];
             app.extractYears();
             app.extractDepartments();
+            app.applyRoleRestrictions(); // 關鍵：拉完資料後再次確保畫面依角色/訪客模式切換
             app.updateStats();
             app.renderView();
         } catch (e) {
@@ -258,6 +260,11 @@ const app = {
             if (filterYear) filterYear.classList.add('hidden');
             if (dashboard) dashboard.classList.add('hidden');
             if (toolbarSection) toolbarSection.classList.add('hidden');
+            
+            // 訪客時隱藏全域導覽列部分按鈕
+            const navActions = document.querySelector('.nav-actions');
+            if (navActions) navActions.classList.add('hidden');
+
             // 切換到訪客專屬畫面
             const guestView = document.getElementById('guestView');
             const mainView = document.getElementById('mainView');
@@ -266,7 +273,9 @@ const app = {
             app.renderGuestView();
             return;
         }
-        // 登入後確保切回主画面
+        // 登入後恢復全域導覽列與畫面切換
+        const navActions = document.querySelector('.nav-actions');
+        if (navActions) navActions.classList.remove('hidden');
         const guestView = document.getElementById('guestView');
         const mainView = document.getElementById('mainView');
         if (guestView) guestView.classList.add('hidden');
