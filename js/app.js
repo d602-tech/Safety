@@ -136,11 +136,67 @@ const app = {
             { theme: app.state.theme === 'light' ? 'outline' : 'filled_blue', size: "large", shape: "pill" }
         );
 
-        // 未登入狀態下先抓取預設公開資料
+        // 訪客登陸頁也渲染登入按鈕
+        const guestLoginEl = document.getElementById('googleLoginBtnGuest');
+        if (guestLoginEl) {
+            google.accounts.id.renderButton(
+                guestLoginEl,
+                { theme: app.state.theme === 'light' ? 'outline' : 'filled_blue', size: "large", shape: "pill", width: 280 }
+            );
+        }
+
+        // 未登入狀態：顯示訪客頁，隱藏主系統
         if (!app.state.user) {
-            app.state.quickFilter = 'active'; // 預設顯示未結案
+            app.showGuestLanding(true);
             app.fetchPublicData();
         }
+    },
+
+    showGuestLanding: (show) => {
+        const guestLanding = document.getElementById('guestLanding');
+        const mainContainer = document.querySelector('.main-container');
+        if (show) {
+            if (guestLanding) guestLanding.classList.add('active');
+            if (mainContainer) mainContainer.style.display = 'none';
+        } else {
+            if (guestLanding) guestLanding.classList.remove('active');
+            if (mainContainer) mainContainer.style.display = '';
+        }
+    },
+
+    renderGuestCards: () => {
+        const container = document.getElementById('guestCaseCards');
+        if (!container) return;
+        const todayStr = new Date().toISOString().split('T')[0];
+        const activeCases = app.state.cases.filter(c => c['辦理狀態'] !== '第4階段-已結案');
+
+        if (!activeCases.length) {
+            container.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:40px; color:var(--text-muted);">\u2615 目前沒有進行中的案件</div>';
+            return;
+        }
+
+        container.innerHTML = '';
+        activeCases.sort((a, b) => (a['最晚應核章日期'] || '').localeCompare(b['最晚應核章日期'] || '')).forEach(c => {
+            const diffDays = Math.ceil((new Date(c['最晚應核章日期']) - new Date(todayStr)) / (1000 * 60 * 60 * 24));
+            const isOverdue = diffDays <= 0;
+            const isCritical = diffDays <= 3;
+            const isUrgent = diffDays <= 7;
+            const urgencyClass = isOverdue ? 'overdue critical' : isCritical ? 'overdue urgent' : isUrgent ? 'urgent' : '';
+
+            const card = document.createElement('div');
+            card.className = `guest-case-card ${urgencyClass}`;
+            card.innerHTML = `
+                <div class="guest-card-title">${c['工程簡稱']}</div>
+                <div class="guest-card-info"><i class="fas fa-building"></i> ${c['主辦部門']}</div>
+                <div class="guest-card-info"><i class="fas fa-hard-hat"></i> ${c['承攬商']}</div>
+                <div class="guest-card-info"><i class="fas fa-calendar-alt"></i> 限辦：${c['最晚應核章日期']}</div>
+                <div class="guest-countdown">
+                    <span class="guest-countdown-num">${isOverdue ? '已逾期' : diffDays}</span>
+                    <span class="guest-countdown-label">${isOverdue ? '' : '天'}</span>
+                </div>
+            `;
+            container.appendChild(card);
+        });
     },
 
     fetchPublicData: async () => {
@@ -149,10 +205,7 @@ const app = {
             const res = await api.getPublicCases();
             app.state.cases = res.data.cases || [];
             app.state.projects = res.data.projects || [];
-            app.extractYears();
-            app.extractDepartments();
-            app.updateStats();
-            app.renderView();
+            app.renderGuestCards();
         } catch (e) {
             console.error("無法載入預設資料", e);
         } finally {
@@ -176,7 +229,8 @@ const app = {
             document.getElementById('userNameDisplay').innerText = `${app.state.user.email}`;
             document.getElementById('logoutBtn').classList.remove('hidden');
 
-            app.state.quickFilter = 'active'; // 登入後預設顯示未結案
+            app.showGuestLanding(false);
+            app.state.quickFilter = 'active';
             app.applyRoleRestrictions();
             app.extractYears();
             app.extractDepartments();
@@ -205,8 +259,8 @@ const app = {
         document.getElementById('logoutBtn').classList.add('hidden');
         document.getElementById('googleLoginBtn').classList.remove('hidden');
         app.toggleView('cases');
-        app.applyRoleRestrictions();
-        app.fetchPublicData(); // 登出後切換回訪客資料
+        app.showGuestLanding(true);
+        app.fetchPublicData();
     },
 
     applyRoleRestrictions: () => {
