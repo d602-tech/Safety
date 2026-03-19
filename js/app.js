@@ -213,40 +213,55 @@ const app = {
         const btnProjMgmt = document.getElementById('btnProjMgmt');
         const btnAdminUsers = document.getElementById('btnAdminUsers');
         
-        // 先隱藏
+        // 先全部隱藏
         if (btnNew) btnNew.classList.add('hidden');
         if (btnRemind) btnRemind.classList.add('hidden');
         if (btnProjMgmt) btnProjMgmt.classList.add('hidden');
         if (btnAdminUsers) btnAdminUsers.classList.add('hidden');
 
-        // 簡化部分 (針對 DepartmentUploader)
         const workflow = document.querySelector('.workflow-section');
         const modeSwitch = document.querySelector('.mode-switch-wrapper');
         const deptStats = document.getElementById('deptStatsSection');
         const btnExport = document.querySelector('button[onclick="app.exportToCSV()"]');
         const btnExample = document.querySelector('button[onclick="app.downloadExample()"]');
         const filterDept = document.getElementById('filterDepartment');
-        
-        // 預設重置
+        const filterYear = document.getElementById('filterYear');
+        const filterStatus = document.getElementById('filterStatus');
+        const toolbarSection = document.querySelector('.toolbar');
+        const dashboard = document.querySelector('.dashboard');
+
+        // 重置
         if (workflow) workflow.classList.remove('hidden');
         if (modeSwitch) modeSwitch.classList.remove('hidden');
         if (deptStats) deptStats.classList.add('hidden');
         if (btnExport) btnExport.classList.remove('hidden');
         if (btnExample) btnExample.classList.remove('hidden');
         if (filterDept) filterDept.classList.remove('hidden');
+        if (filterYear) filterYear.classList.remove('hidden');
+        if (filterStatus) filterStatus.classList.remove('hidden');
+        if (toolbarSection) toolbarSection.classList.remove('hidden');
+        if (dashboard) dashboard.classList.remove('hidden');
 
         const user = app.state.user;
         const pathRef = document.getElementById('pathReferenceSection');
         if (pathRef) pathRef.style.display = 'none';
 
-        if (!user) return;
+        // 未登入訪客模式：精簡到最小
+        if (!user) {
+            if (workflow) workflow.classList.add('hidden');
+            if (modeSwitch) modeSwitch.classList.add('hidden');
+            if (btnExport) btnExport.classList.add('hidden');
+            if (filterDept) filterDept.classList.add('hidden');
+            if (filterStatus) filterStatus.classList.add('hidden');
+            if (dashboard) dashboard.classList.add('hidden');
+            if (toolbarSection) toolbarSection.classList.add('hidden');
+            return;
+        }
 
         if (user.role === 'DepartmentUploader') {
             if (workflow) workflow.classList.add('hidden');
             if (modeSwitch) modeSwitch.classList.add('hidden');
             if (deptStats) deptStats.classList.remove('hidden');
-            
-            // 點對點極致精簡
             if (btnExport) btnExport.classList.add('hidden');
             if (btnExample) btnExample.classList.add('hidden');
             if (filterDept) filterDept.classList.add('hidden');
@@ -1026,7 +1041,7 @@ const app = {
     },
 
     renderDeptStats: (deptCases, currentYear) => {
-        const projStatsTable = document.getElementById('projStatsTable');
+        const projStatsTable = document.getElementById('projectStatsTable');
         const caseDatesTable = document.getElementById('caseDatesTable');
         if (!projStatsTable || !caseDatesTable) return;
 
