@@ -180,11 +180,13 @@ const app = {
             app.applyRoleRestrictions();
             app.extractYears();
             app.extractDepartments();
+            
+            // 先拉缺失清單，再更新統計（否則缺失次數永遠為 0）
+            if (app.state.user.role === 'Admin') app.fetchUsers();
+            await app.fetchDeficiencies();
             app.updateStats();
             app.renderView();
             
-            if (app.state.user.role === 'Admin') app.fetchUsers();
-            app.fetchDeficiencies();
             app.showToast("登入成功");
         } catch (e) {
             app.showToast("登入失敗或帳號未啟用", "error");
@@ -592,37 +594,54 @@ const app = {
                 card.setAttribute('onclick', `app.confirmS2Download('${s2Url}')`);
             }
             card.setAttribute('data-dept', c['主辦部門'] || '');
-            card.innerHTML = `
-                ${countdownHtml}
-                <div class="card-header" onclick="event.stopPropagation()">
-                    <h4 class="report-clickable" onclick="app.openManage('${c.id}')">${snLabel}${c['工程簡稱']}</h4>
-                    <span class="badge ${isOverdue ? 'warning' : app.getBadgeClass(c['辦理狀態'])}">${app.formatStatus(c['辦理狀態'])}</span>
-                </div>
-                <div class="card-body">
-                    <div class="info-row"><i class="fas fa-building"></i> ${c['主辦部門']}</div>
-                    <div class="info-row"><i class="fas fa-hard-hat"></i> ${c['承攬商']}</div>
-                    <div class="info-row"><i class="fas fa-calendar-alt"></i> 查核：${c['查核日期']}</div>
-                    <div class="info-row"><i class="fas fa-user-tie"></i> 人員：${c['查核人員'] || '無'}</div>
-                    ${c['承辦人姓名'] ? `<div class="info-row"><i class="fas fa-user"></i> 承辦：${c['承辦人姓名']} <span style="font-size:0.75rem;">${c['承辦人電子信箱'] ? '('+c['承辦人電子信箱']+')' : ''}</span></div>` : ''}
-                    ${c['承辦課長職稱'] ? `<div class="info-row"><i class="fas fa-user-shield"></i> 課長：${c['承辦課長職稱']} <span style="font-size:0.75rem;">${c['承辦課長電子信箱'] ? '('+c['承辦課長電子信箱']+')' : ''}</span></div>` : ''}
-                    <div class="info-row" style="${isOverdue ? 'color:var(--warning);font-weight:700;' : ''}"><i class="fas fa-clock"></i> 限辦：${c['最晚應核章日期']}</div>
-                    ${c['結案日期'] ? `<div class="info-row" style="color:var(--success);font-weight:700;"><i class="fas fa-check"></i> 結案：${new Date(c['結案日期']).toISOString().split('T')[0]}</div>` : ''}
-                    
-                    ${app.state.systemMode === 'progress' ? app.getProgressHtml(c) : `
-                        <div style="margin-top:10px; padding:10px; background:rgba(0,0,0,0.03); border-radius:10px; font-size:0.8rem;">
-                            <i class="fas fa-exclamation-circle" style="color:var(--primary);"></i> 缺失數：${app.state.deficiencies.filter(d => d.caseId === c.id).length}
-                        </div>
-                    `}
-                </div>
-                <div class="card-footer" onclick="event.stopPropagation()">
-                    <button class="btn btn-primary" onclick="app.openManage('${c.id}')">管理</button>
-                    <button class="btn btn-outline" onclick="app.viewHistory('${c.id}')"><i class="fas fa-history"></i></button>
-                    ${isAdmin ? `<button class="btn btn-outline" style="color:var(--warning); border-color:var(--warning);" onclick="app.deleteCase('${c.id}')"><i class="fas fa-trash"></i></button>` : ''}
-                </div>
-                <div style="padding: 12px 24px; border-top: 1px dashed var(--border);">
-                    ${app.getFileStatusHtml(c)}
-                </div>
-            `;
+
+            // 訪客模式極簡卡片
+            if (isGuest) {
+                card.innerHTML = `
+                    ${countdownHtml}
+                    <div class="card-header">
+                        <h4>${snLabel}${c['工程簡稱']}</h4>
+                        <span class="badge ${isOverdue ? 'warning' : app.getBadgeClass(c['辦理狀態'])}">${app.formatStatus(c['辦理狀態'])}</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="info-row"><i class="fas fa-building"></i> ${c['主辦部門']}</div>
+                        <div class="info-row"><i class="fas fa-hard-hat"></i> ${c['承攬商']}</div>
+                        <div class="info-row" style="${isOverdue ? 'color:var(--warning);font-weight:700;' : ''}"><i class="fas fa-clock"></i> 限辦：${c['最晚應核章日期']}</div>
+                    </div>
+                `;
+            } else {
+                card.innerHTML = `
+                    ${countdownHtml}
+                    <div class="card-header" onclick="event.stopPropagation()">
+                        <h4 class="report-clickable" onclick="app.openManage('${c.id}')">${snLabel}${c['工程簡稱']}</h4>
+                        <span class="badge ${isOverdue ? 'warning' : app.getBadgeClass(c['辦理狀態'])}">${app.formatStatus(c['辦理狀態'])}</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="info-row"><i class="fas fa-building"></i> ${c['主辦部門']}</div>
+                        <div class="info-row"><i class="fas fa-hard-hat"></i> ${c['承攬商']}</div>
+                        <div class="info-row"><i class="fas fa-calendar-alt"></i> 查核：${c['查核日期']}</div>
+                        <div class="info-row"><i class="fas fa-user-tie"></i> 人員：${c['查核人員'] || '無'}</div>
+                        ${c['承辦人姓名'] ? `<div class="info-row"><i class="fas fa-user"></i> 承辦：${c['承辦人姓名']} <span style="font-size:0.75rem;">${c['承辦人電子信箱'] ? '('+c['承辦人電子信箱']+')' : ''}</span></div>` : ''}
+                        ${c['承辦課長職稱'] ? `<div class="info-row"><i class="fas fa-user-shield"></i> 課長：${c['承辦課長職稱']} <span style="font-size:0.75rem;">${c['承辦課長電子信箱'] ? '('+c['承辦課長電子信箱']+')' : ''}</span></div>` : ''}
+                        <div class="info-row" style="${isOverdue ? 'color:var(--warning);font-weight:700;' : ''}"><i class="fas fa-clock"></i> 限辦：${c['最晚應核章日期']}</div>
+                        ${c['結案日期'] ? `<div class="info-row" style="color:var(--success);font-weight:700;"><i class="fas fa-check"></i> 結案：${new Date(c['結案日期']).toISOString().split('T')[0]}</div>` : ''}
+                        
+                        ${app.state.systemMode === 'progress' ? app.getProgressHtml(c) : `
+                            <div style="margin-top:10px; padding:10px; background:rgba(0,0,0,0.03); border-radius:10px; font-size:0.8rem;">
+                                <i class="fas fa-exclamation-circle" style="color:var(--primary);"></i> 缺失數：${app.state.deficiencies.filter(d => String(d.caseId) === String(c.id)).length}
+                            </div>
+                        `}
+                    </div>
+                    <div class="card-footer" onclick="event.stopPropagation()">
+                        <button class="btn btn-primary" onclick="app.openManage('${c.id}')">管理</button>
+                        <button class="btn btn-outline" onclick="app.viewHistory('${c.id}')"><i class="fas fa-history"></i></button>
+                        ${isAdmin ? `<button class="btn btn-outline" style="color:var(--warning); border-color:var(--warning);" onclick="app.deleteCase('${c.id}')"><i class="fas fa-trash"></i></button>` : ''}
+                    </div>
+                    <div style="padding: 12px 24px; border-top: 1px dashed var(--border);">
+                        ${app.getFileStatusHtml(c)}
+                    </div>
+                `;
+            }
             container.appendChild(card);
         });
     },
@@ -706,7 +725,7 @@ const app = {
     changeMonth: (offset) => { app.state.calDate.setMonth(app.state.calDate.getMonth() + offset); app.renderView(); },
 
     /** 4. 缺失清單 */
-    fetchDeficiencies: async () => { try { const res = await api.getDeficiencies(); app.state.deficiencies = res.data; if(app.state.currentView === 'deficiencies') app.renderDeficiencies(); } catch(e){} },
+    fetchDeficiencies: async () => { try { const res = await api.getDeficiencies(); app.state.deficiencies = res.data; if(app.state.currentView === 'deficiencies') app.renderDeficiencies(); app.updateStats(); } catch(e){} },
     renderDeficiencies: () => {
         const tbody = document.getElementById('defListBody');
         if (!tbody) return;
@@ -1054,23 +1073,43 @@ const app = {
             ? deptCases.filter(c => c['查核日期'] && c['查核日期'].startsWith(currentYear))
             : deptCases;
 
-        // 工程統計：每工程查核次數 + 缺失次數
-        const projMap = {};
+        // 工程統計：按工程分群，每次查核列出缺失數，再加總
+        const projGroups = {};
         yearDeptCases.forEach(c => {
             const p = c['工程簡稱'];
-            if (!projMap[p]) projMap[p] = { count: 0, defs: 0 };
-            projMap[p].count++;
-            // 強制轉字串比較，避免 caseId 型別不符
+            if (!projGroups[p]) projGroups[p] = [];
             const cid = String(c.id);
-            const caseDefs = app.state.deficiencies.filter(d => String(d.caseId) === cid);
-            projMap[p].defs += caseDefs.length;
+            const defCount = app.state.deficiencies.filter(d => String(d.caseId) === cid).length;
+            projGroups[p].push({ date: c['查核日期'], defs: defCount });
         });
 
-        let projHtml = '<table style="width:100%; border-collapse:collapse;">';
-        projHtml += '<tr style="border-bottom:1px solid var(--border); color:var(--text-muted);"><th>工程</th><th>查核</th><th>缺失</th></tr>';
-        Object.entries(projMap).sort((a,b) => b[1].count - a[1].count).forEach(([p, s]) => {
-            projHtml += `<tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 0;">${p}</td><td>${s.count}</td><td>${s.defs}</td></tr>`;
+        let projHtml = '<table style="width:100%; border-collapse:collapse; text-align:center;">';
+        projHtml += '<tr style="border-bottom:2px solid var(--border); color:var(--text-muted);"><th style="text-align:left; padding:6px;">工程</th><th style="width:80px;">查核日</th><th style="width:50px;">缺失</th></tr>';
+        let totalChecks = 0, totalDefs = 0;
+        Object.entries(projGroups).sort((a,b) => b[1].length - a[1].length).forEach(([proj, items]) => {
+            const subDefs = items.reduce((s, i) => s + i.defs, 0);
+            totalChecks += items.length;
+            totalDefs += subDefs;
+            items.forEach((item, idx) => {
+                projHtml += `<tr style="border-bottom:1px solid var(--border);">
+                    <td style="text-align:left; padding:4px 6px;">${idx === 0 ? '<b>' + proj + '</b>' : ''}</td>
+                    <td style="font-size:0.8rem;">${item.date}</td>
+                    <td>${item.defs}</td>
+                </tr>`;
+            });
+            // 小計行
+            projHtml += `<tr style="border-bottom:2px solid var(--primary); background:rgba(99,102,241,0.04);">
+                <td style="text-align:left; padding:4px 6px; font-weight:700; color:var(--primary);">${proj} 小計</td>
+                <td style="font-weight:700;">${items.length} 次</td>
+                <td style="font-weight:700; color:var(--warning);">${subDefs}</td>
+            </tr>`;
         });
+        // 總計行
+        projHtml += `<tr style="background:rgba(99,102,241,0.08);">
+            <td style="text-align:left; padding:6px; font-weight:800; font-size:0.95rem; color:var(--primary);">合計</td>
+            <td style="font-weight:800;">${totalChecks} 次</td>
+            <td style="font-weight:800; color:var(--danger);">${totalDefs}</td>
+        </tr>`;
         projHtml += '</table>';
         projStatsTable.innerHTML = projHtml;
 
