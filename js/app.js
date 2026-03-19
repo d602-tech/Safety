@@ -976,7 +976,10 @@ const app = {
         let cases = app.state.cases;
         const isDept = app.state.user && app.state.user.role === 'DepartmentUploader';
         
-        const yearFilter = document.getElementById('filterYear')?.value || new Date().getFullYear().toString();
+        let yearFilter = new Date().getFullYear().toString();
+        const yearSelect = document.getElementById('filterYear');
+        if (yearSelect) yearFilter = yearSelect.value;
+        
         if (yearFilter) {
             cases = cases.filter(c => c['查核日期'] && c['查核日期'].startsWith(yearFilter));
         }
