@@ -1263,6 +1263,7 @@ const app = {
     // 案件管理與上傳邏輯 (延用上一版本並微調)
     openManage: async (id) => {
         const c = app.state.cases.find(item => item.id == id);
+        const canClose = !!(c['S3廠商及員工改善後核章檔案位置'] || c['S3 廠商及員工改善後核章檔案位置']);
         if (!c) return;
         
         const isSafety = (app.state.user.role === 'Admin' || app.state.user.role === 'SafetyUploader');
@@ -1354,10 +1355,10 @@ const app = {
                             <i class="fas fa-info-circle"></i> 當前狀態：<b style="color:var(--primary);">${c['辦理狀態']}</b>
                         </div>
                                                                         <div class="manage-grid">
-                            ${app.getUploadSection(id, 'stage2e', 'S2 員工', 'var(--danger)', '請上傳「員工版本」之 S2 檔案。', !!c['S2員工查核檔案位置'])}
-                            ${app.getUploadSection(id, 'stage2c', 'S2 廠商', 'var(--danger)', '請上傳「承攬商版本」之 S2 檔案。', !!c['S2廠商查核檔案位置'])}
-                            ${app.getUploadSection(id, 'stage3', 'S3 改善核章', '#fbbf24', '受查部門核章版資料', !!c['S3廠商及員工改善後核章檔案位置'])}
-                            ${app.getUploadSection(id, 'stage4c', 'S4 廠商結案', 'var(--success)', '廠商完成改善結案', !!c['S4結案檔案位置'])}
+                            ${app.getUploadSection(id, 'stage2e', 'S2 員工', '#ef4444', '請上傳「員工版本」之 S2 檔案。', !!c['S2員工查核檔案位置'])}
+                            ${app.getUploadSection(id, 'stage2c', 'S2 廠商', '#ef4444', '注意：請上傳「承攬商版本」之 S2 檔案。', !!c['S2廠商查核檔案位置'])}
+                            ${app.getUploadSection(id, 'stage3', 'S3 改善核章', '#f59e0b', '受查部門核章版資料', !!c['S3廠商及員工改善後核章檔案位置'])}
+                            ${app.getUploadSection(id, 'stage4c', 'S4 廠商結案', '#10b981', '廠商完成改善結案', !!c['S4結案檔案位置'])}
                         </div>
                         
                         ${(c['第2階段連結-員工'] || c['第2階段連結-廠商'] || c['第3階段連結'] || c['第4階段連結-員工'] || c['第4階段連結-承攬商']) ? `
