@@ -298,7 +298,16 @@ const app = {
             if (btnRemind) btnRemind.classList.remove('hidden');
             if (btnProjMgmt) btnProjMgmt.classList.remove('hidden');
             if (btnAdminUsers) btnAdminUsers.classList.remove('hidden');
+            const btnInitSystem = document.getElementById('btnInitSystem');
+            const btnDeptAccounts = document.getElementById('btnDeptAccounts');
+            const btnTestEmail = document.getElementById('btnTestEmail');
+            const btnRunReminder = document.getElementById('btnRunReminder');
+            const btnSetupTrigger = document.getElementById('btnSetupTrigger');
             if (btnInitSystem) btnInitSystem.classList.remove('hidden');
+            if (btnDeptAccounts) btnDeptAccounts.classList.remove('hidden');
+            if (btnTestEmail) btnTestEmail.classList.remove('hidden');
+            if (btnRunReminder) btnRunReminder.classList.remove('hidden');
+            if (btnSetupTrigger) btnSetupTrigger.classList.remove('hidden');
         }
     },
 
@@ -427,7 +436,8 @@ const app = {
             cases: [document.getElementById('viewCasesGrid'), document.getElementById('viewCasesList'), document.getElementById('viewCalendar')],
             users: document.getElementById('viewUsers'),
             deficiencies: document.getElementById('viewDeficiencies'),
-            projects: document.getElementById('viewProjects')
+            projects: document.getElementById('viewProjects'),
+            deptAccounts: document.getElementById('viewDeptAccounts')
         };
         const btnUsers = document.getElementById('btnAdminUsers');
         const btnProj = document.getElementById('btnProjMgmt');
@@ -444,7 +454,10 @@ const app = {
             btnDef?.classList.remove('hidden');
             app.toggleViewMode(app.state.viewMode);
         } else {
-            document.getElementById('view' + view.charAt(0).toUpperCase() + view.slice(1))?.classList.remove('hidden');
+            // deptAccounts 特殊處理： view 名稱轉為 id
+            const viewId = view === 'deptAccounts' ? 'viewDeptAccounts'
+                         : 'view' + view.charAt(0).toUpperCase() + view.slice(1);
+            document.getElementById(viewId)?.classList.remove('hidden');
             btnBack?.classList.remove('hidden');
             btnUsers?.classList.add('hidden');
             btnProj?.classList.add('hidden');
@@ -452,6 +465,7 @@ const app = {
             if (view === 'users') app.renderUsers();
             if (view === 'deficiencies') app.renderDeficiencies();
             if (view === 'projects') app.renderProjects();
+            if (view === 'deptAccounts') app.renderDeptAccounts();
         }
     },
 
@@ -1998,6 +2012,145 @@ const app = {
             </body></html>
         `);
         win.document.close();
+    },
+
+    // ==================== 測試信件 ====================
+    triggerTestEmail: async () => {
+        if (!confirm('確認發送三封測試信件至後端設定的 TEST_EMAIL？')) return;
+        try {
+            app.showToast('發送測試信...');
+            const res = await api.testSendEmail();
+            app.showToast(res.message, 'success');
+        } catch (e) {
+            app.showToast(e.message, 'error');
+        }
+    },
+
+    // ==================== 手動稽催 ====================
+    triggerDailyReminder: async () => {
+        if (!confirm('手動執行三階段稽催？將透過实際信箱發送通知。')) return;
+        try {
+            const btn = document.getElementById('btnRunReminder');
+            if (btn) { btn.disabled = true; btn.innerText = '執行中...'; }
+            const res = await api.runDailyReminder();
+            app.showToast(res.message, 'success');
+            if (res.errors && res.errors.length) {
+                console.warn('稽催錯誤:', res.errors);
+                app.showToast(`有 ${res.errors.length} 筆發送失敗，請查看 Console`, 'error');
+            }
+        } catch (e) {
+            app.showToast(e.message, 'error');
+        } finally {
+            const btn = document.getElementById('btnRunReminder');
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-bell"></i> 執行稽催'; }
+        }
+    },
+
+    // ==================== 建立觸發器 ====================
+    triggerSetupTrigger: async () => {
+        if (!confirm('將在 GAS 建立「每日上午8:00」自動稽催觸發器（已存在則艥過）。確定執行？')) return;
+        try {
+            const res = await api.setupTrigger();
+            app.showToast(res.message, 'success');
+        } catch (e) {
+            app.showToast(e.message, 'error');
+        }
+    },
+
+    // ==================== 帳號管理 ====================
+    renderDeptAccounts: async () => {
+        const tbody = document.getElementById('deptAccountListBody');
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:30px;"><i class="fas fa-spinner fa-spin"></i> 載入中...</td></tr>';
+        try {
+            const res = await api.getDeptAccounts();
+            const accounts = res.data || [];
+            if (!accounts.length) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:40px; color:var(--text-muted);">\u5c1a無帳號資料</td></tr>';
+                return;
+            }
+            tbody.innerHTML = accounts.map(a => `
+                <tr>
+                    <td><strong>${a.deptName}</strong></td>
+                    <td>${a.contractorName || '-'}</td>
+                    <td><a href="mailto:${a.contractorEmail}" style="color:var(--primary);">${a.contractorEmail || '-'}</a></td>
+                    <td>${a.managerName || '-'}</td>
+                    <td><a href="mailto:${a.managerEmail}" style="color:var(--primary);">${a.managerEmail || '-'}</a></td>
+                    <td style="font-size:0.8rem; color:var(--text-muted);">${a.note || ''}</td>
+                    <td style="font-size:0.8rem;">${a.createdAt || ''}</td>
+                    <td>
+                        <button class="btn btn-outline" style="padding:4px 10px; font-size:0.8rem;"
+                            onclick="app.openRegisterDeptAccountModal(${JSON.stringify(a).replace(/"/g, '&quot;')})">
+                            <i class="fas fa-edit"></i> 編輯
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        } catch (e) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; color:var(--danger);">讀取失敗: ${e.message}</td></tr>`;
+        }
+    },
+
+    openRegisterDeptAccountModal: (existing) => {
+        const e = existing || {};
+        app.openModal('新增 / 更新主辦部門帳號', `
+            <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:16px;">
+                <i class="fas fa-info-circle"></i> 同一部門名稱偵測到時自動覆蓋旧資料。
+            </p>
+            <div style="display:grid; gap:12px;">
+                <label>部門名稱 *
+                    <input id="daName" class="form-input" value="${e.deptName || ''}" placeholder="例：工務部" required>
+                </label>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <label>承辦人姓名
+                        <input id="daCtName" class="form-input" value="${e.contractorName || ''}" placeholder="姓名">
+                    </label>
+                    <label>承辦人 Email *
+                        <input id="daCtEmail" class="form-input" type="email" value="${e.contractorEmail || ''}" placeholder="example@company.com">
+                    </label>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <label>課長姓名
+                        <input id="daMgrName" class="form-input" value="${e.managerName || ''}" placeholder="姓名">
+                    </label>
+                    <label>課長 Email
+                        <input id="daMgrEmail" class="form-input" type="email" value="${e.managerEmail || ''}" placeholder="example@company.com">
+                    </label>
+                </div>
+                <label>備註
+                    <input id="daNote" class="form-input" value="${e.note || ''}" placeholder="選填">
+                </label>
+                <button class="btn btn-primary" onclick="app.submitRegisterDeptAccount()">
+                    <i class="fas fa-save"></i> 儲存
+                </button>
+            </div>
+        `);
+    },
+
+    submitRegisterDeptAccount: async () => {
+        const deptName = document.getElementById('daName')?.value.trim();
+        const contractorEmail = document.getElementById('daCtEmail')?.value.trim();
+        if (!deptName || !contractorEmail) {
+            app.showToast('部門名稱與承辦人 Email 為必填欄位', 'error'); return;
+        }
+        try {
+            app.setModalLoading(true);
+            const res = await api.registerDeptAccount({
+                deptName,
+                contractorName: document.getElementById('daCtName')?.value.trim(),
+                contractorEmail,
+                managerName: document.getElementById('daMgrName')?.value.trim(),
+                managerEmail: document.getElementById('daMgrEmail')?.value.trim(),
+                note: document.getElementById('daNote')?.value.trim()
+            });
+            app.showToast(res.message, 'success');
+            app.closeModal();
+            app.renderDeptAccounts();
+        } catch (e) {
+            app.showToast(e.message, 'error');
+        } finally {
+            app.setModalLoading(false);
+        }
     }
 };
 

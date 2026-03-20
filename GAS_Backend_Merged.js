@@ -20,6 +20,13 @@ const SHEET_ANNUAL_PLAN = '年度計畫';
 const SHEET_DEFICIENCY_DB = '缺失清單';
 const SHEET_USER_PERMISSIONS = '使用者權限';
 const SHEET_FILE_HISTORY = '檔案歷程';
+const SHEET_DEPT_ACCOUNTS = '帳號管理';
+
+// ── 測試模式設定（優先讀 Script Properties，讀不到則用下方預設值）──
+const _props = PropertiesService.getScriptProperties();
+const TEST_EMAIL = _props.getProperty('TEST_EMAIL') || 'clinlion418@gmail.com';
+// 系統前台連結（信件中「前往系統」按鈕）
+const SYSTEM_URL = _props.getProperty('SYSTEM_URL') || 'https://your-github-pages-url.github.io/';
 
 const STATUS = {
   STAGE1: '第1階段-已登錄',
@@ -148,6 +155,31 @@ function doPost(e) {
       case 'setup_system':
         if(roleData.role !== 'Admin') throw new Error("唯有管理員可進行系統初始化。");
         result = setupSystem_();
+        break;
+
+      case 'test_send_email':
+        if(roleData.role !== 'Admin') throw new Error("只有 Admin 可發送測試信件。");
+        result = sendTestEmail_();
+        break;
+
+      case 'run_daily_reminder':
+        if(roleData.role !== 'Admin') throw new Error("只有 Admin 可手動觸發稽催。");
+        result = runDailyReminderJob_();
+        break;
+
+      case 'setup_trigger':
+        if(roleData.role !== 'Admin') throw new Error("只有 Admin 可設定觸發器。");
+        result = setupDailyTrigger_();
+        break;
+
+      case 'register_dept_account':
+        if(roleData.role !== 'Admin') throw new Error("只有 Admin 可管理帳號。");
+        result = registerDeptAccount_(payload);
+        break;
+
+      case 'get_dept_accounts':
+        if(roleData.role !== 'Admin') throw new Error("只有 Admin 可讀取帳號清單。");
+        result = getDeptAccounts_();
         break;
 
       case 'delete_deficiency':
@@ -637,7 +669,8 @@ function setupSystem_() {
     { name: SHEET_DEFICIENCY_DB, headers: ['缺失ID', '案件ID', '工程簡稱', '缺失內容', '主辦部門', '改善期限', '狀態', '錄入者'], color: '#fef3c7' },
     { name: SHEET_CHANGE_LOG, headers: ['修改日期', '案件ID', '工程簡稱', '修改人員', '狀態', '說明', '檔案名稱', '檔案位置'], color: '#eff6ff' },
     { name: SHEET_FILE_HISTORY, headers: ['異動日期', '異動人員', '案件ID', '異動內容', '檔案類型', '檔案連結', '狀態'], color: '#d1fae5' },
-    { name: SHEET_USER_PERMISSIONS, headers: ['信箱 (Email)', '姓名 (Name)', '角色 (Role)', '所屬部門 (Department)', '啟用狀態 (Active)'], color: '#f3f4f6' }
+    { name: SHEET_USER_PERMISSIONS, headers: ['信箱 (Email)', '姓名 (Name)', '角色 (Role)', '所屬部門 (Department)', '啟用狀態 (Active)'], color: '#f3f4f6' },
+    { name: SHEET_DEPT_ACCOUNTS, headers: ['部門名稱', '承辦人姓名', '承辦人Email', '課長姓名', '課長Email', '備註', '建立日期'], color: '#e0f2fe' }
   ];
 
   sheetsToCreate.forEach(cfg => {
@@ -1139,4 +1172,460 @@ function getAttachmentsForCases_(cases) {
         }
     });
     return attachments;
+}
+
+
+// ==================== 測試模式 ====================
+
+/**
+ * 【手動執行】發送測試信至 TEST_EMAIL，忽略真實收件人
+ * 可在 GAS 編輯器中直接選擇此函數並點「執行」測試郵件格式
+ */
+function sendTestEmail_() {
+  try {
+    const fakeCase = {
+      id: 'TEST001',
+      '工程簡稱': '測試工程',
+      '工程名稱': '範例測試工程名稱',
+      '承攬商': '測試承攬商',
+      '主辦部門': '測試部門',
+      '最晚應核章日期': Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'),
+      '查核日期': Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'),
+      '辦理狀態': STATUS.STAGE2,
+      '承辦人姓名': '張測試',
+      '承辦人電子信箱': TEST_EMAIL,
+      '承辦課長職稱': '課長',
+      '承辦課長電子信箱': TEST_EMAIL
+    };
+
+    // 測試三種模板
+    GmailApp.sendEmail(TEST_EMAIL,
+      '【測試信】第1階段 - S2已上傳即時通知',
+      '',
+      { htmlBody: buildStage1EmailHtml_(fakeCase) }
+    );
+
+    GmailApp.sendEmail(TEST_EMAIL,
+      '【測試信】第2階段 - 到期前3日提醒',
+      '',
+      { htmlBody: buildStage2EmailHtml_(fakeCase, 3) }
+    );
+
+    GmailApp.sendEmail(TEST_EMAIL,
+      '【測試信】第3階段 - 最後1日催辦',
+      '',
+      { htmlBody: buildStage3EmailHtml_(fakeCase, 1) }
+    );
+
+    return { success: true, message: `已成功發送 3 封測試信至 ${TEST_EMAIL}` };
+  } catch (e) {
+    throw new Error('測試信發送失敗: ' + e.message);
+  }
+}
+
+// 公開包裝，方便 GAS 選單直接執行
+function sendTestEmail() { sendTestEmail_(); }
+
+
+// ==================== 三階段自動稽催 ====================
+
+/**
+ * 主控函數：每日定時觸發器呼叫此函數
+ * 三階段邏輯:
+ *   Stage1: S2 已上傳 且 尚未發送過 Stage1 通知 → 寄承辦人
+ *   Stage2: S3 尚未上傳 且 距到期恰好 3 天 → 寄承辦人
+ *   Stage3: S3 尚未上傳 且 距到期恰好 1 天 → 寄承辦人 + 課長
+ */
+function runDailyReminderJob_() {
+  const allAudits = getAuditRecords_();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const results = { stage1: 0, stage2: 0, stage3: 0, errors: [] };
+
+  allAudits.forEach(function(audit) {
+    try {
+      const status = audit['辦理狀態'];
+      if (status === STATUS.STAGE4) return; // 已結案略過
+
+      const dueDateStr = audit['最晚應核章日期'];
+      if (!dueDateStr) return;
+      const dueDate = new Date(dueDateStr);
+      dueDate.setHours(0, 0, 0, 0);
+      const daysLeft = Math.round((dueDate - today) / 86400000);
+
+      const s2Uploaded = (status === STATUS.STAGE2 || status === STATUS.STAGE3);
+      const s3NotUploaded = (status === STATUS.STAGE2 || status === STATUS.STAGE1);
+
+      const contractorEmail = audit['承辦人電子信箱'];
+      const managerEmail = audit['承辦課長電子信箱'];
+
+      // ─ Stage 1：S2 已上傳，立即通知（只送一次，用 Change Log 防重複）
+      if (status === STATUS.STAGE2 && !hasNotificationSent_(audit.id, 'NOTIFY_S2')) {
+        if (contractorEmail) {
+          GmailApp.sendEmail(
+            contractorEmail,
+            `【工安查核】${audit['工程簡稱']} 改善單已上傳，可線上修改`,
+            '',
+            { htmlBody: buildStage1EmailHtml_(audit) }
+          );
+          markNotificationSent_(audit.id, audit['工程簡稱'], 'NOTIFY_S2');
+          results.stage1++;
+        }
+      }
+
+      // ─ Stage 2：S3 尚未上傳，距到期 3 天
+      if (s3NotUploaded && daysLeft === 3) {
+        if (contractorEmail) {
+          GmailApp.sendEmail(
+            contractorEmail,
+            `【工安查核】${audit['工程簡稱']} 距核章截止剩 3 天，請速辦！`,
+            '',
+            { htmlBody: buildStage2EmailHtml_(audit, 3) }
+          );
+          results.stage2++;
+        }
+      }
+
+      // ─ Stage 3：S3 尚未上傳，距到期 1 天 → 承辦人 + 課長
+      if (s3NotUploaded && daysLeft === 1) {
+        const recipients = [contractorEmail, managerEmail].filter(Boolean);
+        if (recipients.length > 0) {
+          GmailApp.sendEmail(
+            recipients.join(','),
+            `【緊急】${audit['工程簡稱']} 明日即為核章截止日，請立即處理！`,
+            '',
+            { htmlBody: buildStage3EmailHtml_(audit, 1) }
+          );
+          results.stage3++;
+        }
+      }
+    } catch (err) {
+      results.errors.push(`${audit.id}: ${err.message}`);
+    }
+  });
+
+  return {
+    success: true,
+    message: `稽催完成：Stage1×${results.stage1} Stage2×${results.stage2} Stage3×${results.stage3}`,
+    errors: results.errors
+  };
+}
+
+// 讓 GAS 觸發器可直接呼叫（不需要 roleData）
+function runDailyReminderJob() { runDailyReminderJob_(); }
+
+/** 防重複：檢查 Change Log 是否已有對應通知類型 */
+function hasNotificationSent_(caseId, notifyType) {
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_CHANGE_LOG);
+  if (!sheet || sheet.getLastRow() < 2) return false;
+  const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 6).getValues();
+  return data.some(function(row) {
+    return row[1] == caseId && row[4] === notifyType;
+  });
+}
+
+/** 防重複：寫入已通知標記 */
+function markNotificationSent_(caseId, abbr, notifyType) {
+  logChange_(caseId, abbr, 'SYSTEM', notifyType, '自動通知已發送', '', '');
+}
+
+/**
+ * 建立每日觸發器 (每天上午 8:00)
+ * 只需執行一次；若已存在同名觸發器則略過
+ */
+function setupDailyTrigger_() {
+  const funcName = 'runDailyReminderJob';
+  const existing = ScriptApp.getProjectTriggers();
+  const alreadySet = existing.some(function(t) {
+    return t.getHandlerFunction() === funcName;
+  });
+  if (alreadySet) {
+    return { success: true, message: '每日觸發器已存在，無需重複建立。' };
+  }
+  ScriptApp.newTrigger(funcName)
+    .timeBased()
+    .everyDays(1)
+    .atHour(8)
+    .create();
+  return { success: true, message: '每日上午 8:00 觸發器建立完成。' };
+}
+
+
+// ==================== HTML 郵件模板 ====================
+
+/** 共用 Header/Footer HTML */
+function _emailHeader_(title, subtitle, accentColor) {
+  accentColor = accentColor || '#1e40af';
+  return `
+<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;">
+<tr><td align="center" style="padding:32px 16px;">
+<table width="620" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.10);">
+
+<!-- Header -->
+<tr><td style="background:${accentColor};padding:28px 36px;">
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td>
+        <div style="font-size:11px;color:rgba(255,255,255,0.7);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">工安查核管理系統</div>
+        <div style="font-size:24px;font-weight:700;color:#ffffff;line-height:1.3;">${title}</div>
+        <div style="font-size:14px;color:rgba(255,255,255,0.85);margin-top:6px;">${subtitle}</div>
+      </td>
+      <td align="right" style="font-size:48px;opacity:0.3;">🏗️</td>
+    </tr>
+  </table>
+</td></tr>
+`;
+}
+
+function _emailFooter_(systemUrl) {
+  systemUrl = systemUrl || SYSTEM_URL;
+  return `
+<!-- Footer -->
+<tr><td style="background:#f8fafc;padding:20px 36px;border-top:1px solid #e2e8f0;">
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td style="font-size:12px;color:#94a3b8;line-height:1.6;">
+        此信件由工安查核管理系統自動發送，請勿直接回覆。<br>
+        如有疑問請聯絡工安組。
+      </td>
+      <td align="right">
+        <a href="${systemUrl}" style="display:inline-block;background:#1e40af;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;padding:10px 22px;border-radius:6px;">前往系統</a>
+      </td>
+    </tr>
+  </table>
+</td></tr>
+
+</table>
+</td></tr></table>
+</body></html>
+`;
+}
+
+/** 共用案件資訊 Table */
+function _caseInfoTable_(audit) {
+  return `
+<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:16px;">
+  <tr style="background:#f8fafc;">
+    <td style="padding:10px 14px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;width:110px;border-bottom:1px solid #e2e8f0;">工程簡稱</td>
+    <td style="padding:10px 14px;font-size:14px;color:#1e293b;font-weight:600;border-bottom:1px solid #e2e8f0;">${audit['工程簡稱'] || '-'}</td>
+  </tr>
+  <tr>
+    <td style="padding:10px 14px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;border-bottom:1px solid #e2e8f0;">工程名稱</td>
+    <td style="padding:10px 14px;font-size:14px;color:#1e293b;border-bottom:1px solid #e2e8f0;">${audit['工程名稱'] || '-'}</td>
+  </tr>
+  <tr style="background:#f8fafc;">
+    <td style="padding:10px 14px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;border-bottom:1px solid #e2e8f0;">承攬商</td>
+    <td style="padding:10px 14px;font-size:14px;color:#1e293b;border-bottom:1px solid #e2e8f0;">${audit['承攬商'] || '-'}</td>
+  </tr>
+  <tr>
+    <td style="padding:10px 14px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;border-bottom:1px solid #e2e8f0;">主辦部門</td>
+    <td style="padding:10px 14px;font-size:14px;color:#1e293b;border-bottom:1px solid #e2e8f0;">${audit['主辦部門'] || '-'}</td>
+  </tr>
+  <tr style="background:#f8fafc;">
+    <td style="padding:10px 14px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;">核章截止日</td>
+    <td style="padding:10px 14px;font-size:14px;font-weight:700;color:#dc2626;">${audit['最晚應核章日期'] || '-'}</td>
+  </tr>
+</table>
+`;
+}
+
+/**
+ * Stage 1 HTML 模板：S2 已上傳，通知承辦人可先行線上修改
+ */
+function buildStage1EmailHtml_(audit) {
+  return _emailHeader_(
+    '改善單已上傳，可先行線上修改',
+    `${audit['主辦部門']} ｜ ${audit['工程簡稱']}`,
+    '#0f766e'
+  ) + `
+<!-- Body -->
+<tr><td style="padding:32px 36px;">
+  <p style="font-size:15px;color:#334155;line-height:1.7;margin:0 0 16px;">
+    您好，<strong>${audit['承辦人姓名'] || '承辦人'}</strong> 您好，
+  </p>
+  <p style="font-size:15px;color:#334155;line-height:1.7;margin:0 0 20px;">
+    系統已偵測到以下案件的<strong>「S2 原始改善單」已上傳</strong>，
+    承辦人員可<strong style="color:#0f766e;">先行至系統線上修改</strong>相關內容，
+    紙本文件可於後續補送。
+  </p>
+
+  ${_caseInfoTable_(audit)}
+
+  <!-- 綠色提示框 -->
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
+    <tr><td style="background:#ecfdf5;border-left:4px solid #10b981;border-radius:0 8px 8px 0;padding:14px 18px;">
+      <p style="margin:0;font-size:14px;color:#065f46;line-height:1.7;">
+        📋 <strong>後續步驟：</strong>請至系統確認改善內容正確後，
+        再上傳「S3 工作隊核章版」完成程序。
+      </p>
+    </td></tr>
+  </table>
+</td></tr>
+` + _emailFooter_();
+}
+
+/**
+ * Stage 2 HTML 模板：距到期 3 天，提醒速辦 + 核章日期警示
+ */
+function buildStage2EmailHtml_(audit, daysLeft) {
+  const dueDate = audit['最晚應核章日期'];
+  return _emailHeader_(
+    `距核章截止剩 ${daysLeft} 天，請速辦！`,
+    `${audit['主辦部門']} ｜ ${audit['工程簡稱']}`,
+    '#b45309'
+  ) + `
+<!-- Body -->
+<tr><td style="padding:32px 36px;">
+
+  <!-- 倒數警示 -->
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+    <tr><td align="center" style="background:#fef3c7;border:2px solid #f59e0b;border-radius:10px;padding:20px;">
+      <div style="font-size:14px;color:#92400e;font-weight:600;letter-spacing:1px;">核章截止倒數</div>
+      <div style="font-size:52px;font-weight:900;color:#b45309;line-height:1;margin:8px 0;">${daysLeft}</div>
+      <div style="font-size:16px;color:#92400e;font-weight:700;">天</div>
+    </td></tr>
+  </table>
+
+  <p style="font-size:15px;color:#334155;line-height:1.7;margin:0 0 20px;">
+    以下案件的<strong>「S3 工作隊核章版」尚未上傳</strong>，距截止日期僅剩 <strong style="color:#b45309;">${daysLeft} 天</strong>，請儘速辦理。
+  </p>
+
+  ${_caseInfoTable_(audit)}
+
+  <!-- 紅色重點提醒 -->
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
+    <tr><td style="background:#fef2f2;border-left:4px solid #ef4444;border-radius:0 8px 8px 0;padding:14px 18px;">
+      <p style="margin:0;font-size:14px;color:#7f1d1d;line-height:1.7;">
+        ⚠️ <strong>重要提醒：</strong>請特別注意<strong>第一個章的核章日期</strong>，
+        核章日期必須在截止日 <strong>${dueDate}</strong> 之前，否則將視為逾期。
+      </p>
+    </td></tr>
+  </table>
+</td></tr>
+` + _emailFooter_();
+}
+
+/**
+ * Stage 3 HTML 模板：距到期 1 天，同時寄承辦人+課長，強調最後機會
+ */
+function buildStage3EmailHtml_(audit, daysLeft) {
+  const dueDate = audit['最晚應核章日期'];
+  return _emailHeader_(
+    `【緊急】明日即為核章截止日！`,
+    `${audit['主辦部門']} ｜ ${audit['工程簡稱']}`,
+    '#991b1b'
+  ) + `
+<!-- Body -->
+<tr><td style="padding:32px 36px;">
+
+  <!-- 緊急警示橫幅 -->
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+    <tr><td align="center" style="background:#fee2e2;border:2px solid #ef4444;border-radius:10px;padding:20px;">
+      <div style="font-size:28px;margin-bottom:8px;">🚨</div>
+      <div style="font-size:18px;font-weight:800;color:#991b1b;">最後 ${daysLeft} 天！請立即處理</div>
+      <div style="font-size:13px;color:#7f1d1d;margin-top:6px;">此訊息已同步通知承辦人及課長</div>
+    </td></tr>
+  </table>
+
+  <p style="font-size:15px;color:#334155;line-height:1.7;margin:0 0 20px;">
+    以下案件的<strong>「S3 工作隊核章版」仍未上傳</strong>，明日 <strong style="color:#991b1b;">${dueDate}</strong> 即為最後截止日。
+    請承辦人員<strong>立即聯繫相關單位</strong>完成核章程序。
+  </p>
+
+  ${_caseInfoTable_(audit)}
+
+  <!-- 雙重重點提醒 -->
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
+    <tr><td style="background:#fef2f2;border-left:4px solid #ef4444;border-radius:0 8px 8px 0;padding:14px 18px;margin-bottom:12px;">
+      <p style="margin:0;font-size:14px;color:#7f1d1d;line-height:1.8;">
+        🔴 <strong>第一點：</strong>請<strong>立即</strong>上傳 S3 工作隊核章版至系統。<br>
+        🔴 <strong>第二點：</strong>請特別確認<strong>第一個章的核章日期</strong>必須在
+        <strong>${dueDate}</strong> 當日或之前，核章日期不符將視為無效。
+      </p>
+    </td></tr>
+  </table>
+</td></tr>
+` + _emailFooter_();
+}
+
+
+// ==================== 帳號管理 ====================
+
+/**
+ * 寫入「帳號管理」分頁
+ * payload: { deptName, contractorName, contractorEmail, managerName, managerEmail, note }
+ */
+function registerDeptAccount_(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let sheet = ss.getSheetByName(SHEET_DEPT_ACCOUNTS);
+    if (!sheet) {
+      sheet = ss.insertSheet(SHEET_DEPT_ACCOUNTS);
+      sheet.getRange(1, 1, 1, 7).setValues([[
+        '部門名稱', '承辦人姓名', '承辦人Email', '課長姓名', '課長Email', '備註', '建立日期'
+      ]]).setBackground('#e0f2fe').setFontWeight('bold');
+      sheet.setFrozenRows(1);
+    }
+
+    // 若已有同部門資料則更新，否則新增
+    const data = sheet.getDataRange().getValues();
+    let existingRow = -1;
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === payload.deptName) {
+        existingRow = i + 1;
+        break;
+      }
+    }
+
+    const rowData = [
+      payload.deptName || '',
+      payload.contractorName || '',
+      payload.contractorEmail || '',
+      payload.managerName || '',
+      payload.managerEmail || '',
+      payload.note || '',
+      new Date()
+    ];
+
+    if (existingRow > -1) {
+      sheet.getRange(existingRow, 1, 1, 7).setValues([rowData]);
+    } else {
+      sheet.appendRow(rowData);
+    }
+
+    return { success: true, message: `部門「${payload.deptName}」帳號資料已儲存。` };
+  } catch (e) {
+    throw new Error('帳號管理儲存失敗: ' + e.message);
+  }
+}
+
+/** 讀取「帳號管理」分頁所有資料 */
+function getDeptAccounts_() {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(SHEET_DEPT_ACCOUNTS);
+    if (!sheet || sheet.getLastRow() < 2) return { success: true, data: [] };
+
+    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 7).getValues();
+    const accounts = data.map(function(row) {
+      return {
+        deptName: row[0],
+        contractorName: row[1],
+        contractorEmail: row[2],
+        managerName: row[3],
+        managerEmail: row[4],
+        note: row[5],
+        createdAt: row[6] instanceof Date
+          ? Utilities.formatDate(row[6], Session.getScriptTimeZone(), 'yyyy-MM-dd')
+          : row[6]
+      };
+    }).filter(function(r) { return r.deptName; });
+
+    return { success: true, data: accounts };
+  } catch (e) {
+    throw new Error('讀取帳號管理失敗: ' + e.message);
+  }
 }

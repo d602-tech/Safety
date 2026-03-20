@@ -91,5 +91,18 @@ const api = {
     saveUser: (data) => api.request('save_user', data),
 
     // 系統初始化
-    setupSystem: () => api.request('setup_system')
+    setupSystem: () => api.request('setup_system'),
+
+    // 測試信件 (Admin)
+    testSendEmail: () => api.request('test_send_email'),
+
+    // 手動執行每日稽催 (Admin)
+    runDailyReminder: () => api.request('run_daily_reminder'),
+
+    // 建立每日觸發器 (Admin)
+    setupTrigger: () => api.request('setup_trigger'),
+
+    // 帳號管理
+    registerDeptAccount: (data) => api.request('register_dept_account', data),
+    getDeptAccounts: () => api.request('get_dept_accounts')
 };
