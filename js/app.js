@@ -1353,16 +1353,18 @@ const app = {
                             <i class="fas fa-info-circle"></i> 當前狀態：<b style="color:var(--primary);">${c['辦理狀態']}</b>
                         </div>
                         <div class="manage-grid">
-                            ${app.getUploadSection(id, 'stage2', 'S2 原始單', 'var(--warning)', '更換 Word 檔', !!c['第2階段連結'])}
-                            ${app.getUploadSection(id, 'stage3', 'S3 核章版', '#fbbf24', '更換核章版', !!c['第3階段連結'])}
+                            ${app.getUploadSection(id, 'stage2e', 'S2 員工', 'var(--warning)', '員工改善單', !!c['第2階段連結-員工'])}
+                            ${app.getUploadSection(id, 'stage2c', 'S2 廠商', 'var(--warning)', '承攬商版本', !!c['第2階段連結-廠商'])}
+                            ${app.getUploadSection(id, 'stage3', 'S3 廠商', '#fbbf24', '更換核章版', !!c['第3階段連結'])}
                             ${app.getUploadSection(id, 'stage4e', 'S4 結案(員工)', 'var(--success)', '更換員工版', !!c['第4階段連結-員工'])}
                             ${app.getUploadSection(id, 'stage4c', 'S4 結案(承)', 'var(--success)', '更換承攬商版', !!c['第4階段連結-承攬商'])}
                         </div>
                         
-                        ${(c['第2階段連結'] || c['第3階段連結'] || c['第4階段連結-員工'] || c['第4階段連結-承攬商']) ? `
+                        ${(c['第2階段連結-員工'] || c['第2階段連結-廠商'] || c['第3階段連結'] || c['第4階段連結-員工'] || c['第4階段連結-承攬商']) ? `
                         <div style="margin-top:15px; padding:12px; background:rgba(0,0,0,0.03); border-radius:12px; border:1px solid var(--border);">
                             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(80px, 1fr)); gap:8px;">
-                                ${c['第2階段連結'] ? `<a href="${c['第2階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-file-signature"></i> S2</a>` : ''}
+                                ${c['第2階段連結-員工'] ? `<a href="${c['第2階段連結-員工']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-user"></i> S2員</a>` : ''}
+                                ${c['第2階段連結-廠商'] ? `<a href="${c['第2階段連結-廠商']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-industry"></i> S2廠</a>` : ''}
                                 ${c['第3階段連結'] ? `<a href="${c['第3階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-stamp"></i> S3</a>` : ''}
                                 ${c['第4階段連結-員工'] ? `<a href="${c['第4階段連結-員工']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-user-check"></i> S4員</a>` : ''}
                                 ${c['第4階段連結-承攬商'] ? `<a href="${c['第4階段連結-承攬商']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-building-circle-check"></i> S4承</a>` : ''}
@@ -1633,6 +1635,26 @@ const app = {
     submitFile: async (id, stage, isReplace = false) => {
         const input = document.getElementById(`file_${stage}`);
         if(!input.files.length) return app.showToast("請先選擇檔案", "error");
+
+        // S2 上傳完整性驗證
+        if (stage === 'stage2e' || stage === 'stage2c') {
+            const c = app.state.cases.find(x => x['案件ID'] === id);
+            if (c) {
+                const missing = [];
+                if (!c['查核領隊']) missing.push('查核領隊');
+                if (!c['承辦人姓名']) missing.push('承辦人姓名');
+                if (!c['承辦人電子信箱']) missing.push('承辦人電子信箱');
+                if (!c['最晚應核章日期']) missing.push('最晚應核章日期');
+                if (missing.length > 0) {
+                    alert(`請填報人完成資料填寫。
+
+尚未填寫欄位：${missing.join('、')}
+
+【提醒】結案日期需待 S3廠商 改善完成後，以其「第一個核章日期」為準方可填列。`);
+                    return;
+                }
+            }
+        }
         
         let reason = "";
         if (isReplace) {
@@ -1714,7 +1736,7 @@ const app = {
                 
                 <h4 style="margin:10px 0 0 0; color:var(--primary); border-bottom:1px solid var(--border); padding-bottom:5px;">查核人員資訊</h4>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                    <div><label>查核領隊</label><input type="text" id="newAuditLeader" placeholder="例如：王小明"></div>
+                    <div><label>查核領隊</label><input type="text" id="newAuditLeader" value="${(app.state.user ? app.state.user.email.split('@')[0] : '')}" placeholder="例如：王小明"></div>
                     <div><label>查核成員</label><input type="text" id="newAuditMembers" list="auditMembersList" placeholder="例如：陳大毛"></div>
                 </div>
 

@@ -496,13 +496,12 @@ function uploadInspectionFile(fileInfo, caseId, stage, roleData) {
     const fileUrl = uploadedFile.getUrl();
     const fileId = uploadedFile.getId();
 
-    // 【自動化抓取】上傳 S2 時提取缺失
-    if (stage === 'stage2') {
+    // 【自動化抓取】上傳 S2廠商 時提取缺失
+    if (stage === 'stage2c') {
       try {
         extractDeficienciesFromS2_(fileId, caseId, auditData['工程簡稱'], auditData['主辦部門'], userEmail);
       } catch (e) {
         console.error("S2 缺失自動抓取失敗:", e);
-        // 抓取失敗不影響檔案上傳流程
       }
     }
 
@@ -513,7 +512,7 @@ function uploadInspectionFile(fileInfo, caseId, stage, roleData) {
     const statusOrder = [STATUS.STAGE1, STATUS.STAGE2, STATUS.STAGE3, STATUS.STAGE4];
     const currentIndex = statusOrder.indexOf(currentStatus);
 
-    if (stage === 'stage2' && currentIndex < 1) newStatus = STATUS.STAGE2;
+    if ((stage === 'stage2e' || stage === 'stage2c') && currentIndex < 1) newStatus = STATUS.STAGE2;
     else if (stage === 'stage3' && currentIndex < 2) newStatus = STATUS.STAGE3;
     else if (stage === 'stage4' || stage === 'stage4e' || stage === 'stage4c') {
         newStatus = STATUS.STAGE4;
@@ -529,8 +528,10 @@ function uploadInspectionFile(fileInfo, caseId, stage, roleData) {
     let urlColNum = -1;
     let targetHeader = '';
     
-    if (stage === 'stage2') {
-        targetHeader = '第2階段連結';
+    if (stage === 'stage2e') {
+        targetHeader = '第2階段連結-員工';
+    } else if (stage === 'stage2c') {
+        targetHeader = '第2階段連結-廠商';
     } else if (stage === 'stage3') {
         targetHeader = '第3階段連結';
     } else if (stage === 'stage4' || stage === 'stage4e') {
@@ -555,8 +556,9 @@ function uploadInspectionFile(fileInfo, caseId, stage, roleData) {
     
     let stageDisplay = '';
     switch(stage) {
-        case 'stage2': stageDisplay = 'S2 原始改善單'; break;
-        case 'stage3': stageDisplay = 'S3 工作隊核章'; break;
+        case 'stage2e': stageDisplay = 'S2 員工改善單'; break;
+        case 'stage2c': stageDisplay = 'S2 廠商改善單'; break;
+        case 'stage3': stageDisplay = 'S3 廠商核章'; break;
         case 'stage4e': 
         case 'stage4': stageDisplay = 'S4 員工結案版'; break;
         case 'stage4c': stageDisplay = 'S4 承攬商結案版'; break;
@@ -676,7 +678,7 @@ function deleteCase_(caseId, reason, modifierName) {
 function setupSystem_() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheetsToCreate = [
-    { name: SHEET_AUDIT_LIST, headers: ['案件ID', '查核日期', '工程名稱', '工程簡稱', '承攬商', '主辦部門', '最晚應核章日期', '辦理狀態', '查核人員', '修改人員', '結案日期', '查核領隊', '查核成員', '承辦人姓名', '承辦人電子信箱', '承辦課長職稱', '承辦課長電子信箱'], color: '#f3f4f6' },
+    { name: SHEET_AUDIT_LIST, headers: ['案件ID', '查核日期', '工程名稱', '工程簡稱', '承攬商', '主辦部門', '最晚應核章日期', '辦理狀態', '查核人員', '修改人員', '結案日期', '查核領隊', '查核成員', '承辦人姓名', '承辦人電子信箱', '承辦課長職稱', '承辦課長電子信箱', '第2階段連結-員工', '第2階段連結-廠商', '第3階段連結', '第4階段連結-員工', '第4階段連結-承攬商'], color: '#f3f4f6' },
     { name: SHEET_PROJECT_DB, headers: ['流水號', '工程簡稱', '工程名稱', '承攬商', '主辦部門', '承辦人姓名', '承辦人電子信箱', '承辦課長職稱', '承辦課長電子信箱'], color: '#f3f4f6' },
     { name: SHEET_DEFICIENCY_DB, headers: ['缺失ID', '案件ID', '工程簡稱', '缺失內容', '主辦部門', '改善期限', '狀態', '錄入者'], color: '#fef3c7' },
     { name: SHEET_CHANGE_LOG, headers: ['修改日期', '案件ID', '工程簡稱', '修改人員', '狀態', '說明', '檔案名稱', '檔案位置'], color: '#eff6ff' },
@@ -1081,8 +1083,9 @@ function generateFileName_(stage, auditData, extension) {
   const contractor = auditData['承攬商'];
   var prefix = '';
   switch (stage) {
-    case 'stage2': prefix = '【S2_原始改善單】'; break;
-    case 'stage3': prefix = '【S3_工作隊核章】'; break;
+    case 'stage2e': prefix = '【S2_員工改善單】'; break;
+    case 'stage2c': prefix = '【S2_廠商改善單】'; break;
+    case 'stage3': prefix = '【S3_廠商核章】'; break;
     case 'stage4': 
     case 'stage4e': prefix = '【S4_結案-員工】'; break;
     case 'stage4c': prefix = '【S4_結案-承攬商】'; break;
