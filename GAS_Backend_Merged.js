@@ -396,7 +396,7 @@ function registerInspection(data) {
         case '承辦人Email': newRow[header] = data.contractorEmail; break;
         case '承辦課長姓名': newRow[header] = data.contractorManagerTitle; break;
         case '課長Email': newRow[header] = data.contractorManagerEmail; break;
-        default: newRow[header] = "";
+        default: newRow[header] = ""; break;
       }
     });
 

@@ -789,7 +789,8 @@ const app = {
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         const monthName = new Intl.DateTimeFormat('zh-TW', {month:'long'}).format(cur);
 
-        let html = `
+        const canClose = !!c['S3廠商及員工改善後核章檔案位置'];
+                let html = `
             <div class="cal-nav">
                 <button class="btn btn-outline" onclick="app.changeMonth(-1)"><i class="fas fa-chevron-left"></i></button>
                 <h3 style="margin:0">${year}年 ${monthName}</h3>
@@ -1353,9 +1354,9 @@ const app = {
                             <i class="fas fa-info-circle"></i> 當前狀態：<b style="color:var(--primary);">${c['辦理狀態']}</b>
                         </div>
                                                                         <div class="manage-grid">
-                            ${app.getUploadSection(id, 'stage2e', 'S2 員工', 'var(--danger)', '請僅上傳「員工版本」之 S2 檔案。', !!c['S2員工查核檔案位置'])}
-                            ${app.getUploadSection(id, 'stage2c', 'S2 廠商', 'var(--danger)', '注意：請僅上傳「承攬商版本」之 S2 檔案。', !!c['S2廠商查核檔案位置'])}
-                            ${app.getUploadSection(id, 'stage3', 'S3 廠商及員工改善後', '#fbbf24', '受查部門核章版資料', !!c['S3廠商及員工改善後核章檔案位置'])}
+                            ${app.getUploadSection(id, 'stage2e', 'S2 員工', 'var(--danger)', '請上傳「員工版本」之 S2 檔案。', !!c['S2員工查核檔案位置'])}
+                            ${app.getUploadSection(id, 'stage2c', 'S2 廠商', 'var(--danger)', '請上傳「承攬商版本」之 S2 檔案。', !!c['S2廠商查核檔案位置'])}
+                            ${app.getUploadSection(id, 'stage3', 'S3 改善核章', '#fbbf24', '受查部門核章版資料', !!c['S3廠商及員工改善後核章檔案位置'])}
                             ${app.getUploadSection(id, 'stage4c', 'S4 廠商結案', 'var(--success)', '廠商完成改善結案', !!c['S4結案檔案位置'])}
                         </div>
                         
@@ -1444,15 +1445,15 @@ const app = {
         e.target.classList.add('active');
         document.getElementById(tabId).classList.add('active');
     },
-    submitEditCaseInfo: async (caseId) => {
+        submitEditCaseInfo: async (caseId) => {
         const details = {
-            填表人: document.getElementById('editInspector').value.trim(),
+            inspector: document.getElementById('editInspector').value.trim(),
             auditLeader: document.getElementById('editAuditLeader').value.trim(),
             auditMembers: document.getElementById('editAuditMembers').value.trim(),
-            承辦人員姓名: document.getElementById('editContractorName').value.trim(),
-            承辦人Email: document.getElementById('editContractorEmail').value.trim(),
-            承辦課長姓名: document.getElementById('editContractorManagerTitle').value.trim(),
-            課長Email: document.getElementById('editContractorManagerEmail').value.trim(),
+            contractorName: document.getElementById('editContractorName').value.trim(),
+            contractorEmail: document.getElementById('editContractorEmail').value.trim(),
+            contractorManagerTitle: document.getElementById('editContractorManagerTitle').value.trim(),
+            contractorManagerEmail: document.getElementById('editContractorManagerEmail').value.trim(),
             closeDate: document.getElementById('editCloseDate').value || null
         };
 
