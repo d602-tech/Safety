@@ -555,7 +555,7 @@ const app = {
             if (statusFilter && c['辦理狀態'] !== statusFilter) return false;
             
             if (keyword) {
-                const searchStr = `${c['工程簡稱']} ${c['承攬商']} ${c['查核人員']} ${c['案件 ID']}`.toLowerCase();
+                const searchStr = `${c['工程簡稱']} ${c['承攬商']} ${c['查核人員']} ${c['案件ID']}`.toLowerCase();
                 if (!searchStr.includes(keyword)) return false;
             }
 
@@ -1405,17 +1405,17 @@ const app = {
                     <div id="tabInfo" class="tab-content" style="max-height:60vh; overflow-y:auto; padding:5px;">
                         <h4 style="margin:0 0 10px 0; color:var(--primary); border-bottom:1px solid var(--border); padding-bottom:5px;">查核人員資訊</h4>
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
-                            <div><label>查核人員</label><input type="text" id="editInspector" value="${c['查核人員']||''}"></div>
+                            <div><label>填表人</label><input type="text" id="editInspector" value="${c['填表人']||c['查核人員']||''}"></div>
                             <div><label>查核領隊</label><input type="text" id="editAuditLeader" value="${c['查核領隊']||''}"></div>
                             <div style="grid-column:1/-1"><label>查核成員</label><input type="text" id="editAuditMembers" list="auditMembersList" value="${c['查核成員']||''}"></div>
                         </div>
 
                         <h4 style="margin:0 0 10px 0; color:var(--primary); border-bottom:1px solid var(--border); padding-bottom:5px;">承辦聯絡資訊</h4>
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
-                            <div><label>承辦人姓名</label><input type="text" id="editContractorName" value="${c['承辦人姓名']||''}"></div>
-                            <div><label>承辦人電子信箱</label><input type="text" id="editContractorEmail" value="${c['承辦人電子信箱']||''}"></div>
-                            <div><label>承辦課長職稱</label><input type="text" id="editContractorManagerTitle" value="${c['承辦課長職稱']||''}"></div>
-                            <div><label>承辦課長電子信箱</label><input type="text" id="editContractorManagerEmail" value="${c['承辦課長電子信箱']||''}"></div>
+                            <div><label>承辦人員姓名</label><input type="text" id="editContractorName" value="${c['承辦人員姓名']||c['承辦人姓名']||''}"></div>
+                            <div><label>承辦人Email</label><input type="text" id="editContractorEmail" value="${c['承辦人Email']||c['承辦人電子信箱']||''}"></div>
+                            <div><label>承辦課長姓名</label><input type="text" id="editContractorManagerTitle" value="${c['承辦課長姓名']||c['承辦課長職稱']||''}"></div>
+                            <div><label>課長Email</label><input type="text" id="editContractorManagerEmail" value="${c['課長Email']||c['承辦課長電子信箱']||''}"></div>
                         </div>
 
                         <h4 style="margin:0 0 10px 0; color:var(--danger); border-bottom:1px solid var(--border); padding-bottom:5px;">案件狀態資訊</h4>
@@ -1446,13 +1446,13 @@ const app = {
     },
     submitEditCaseInfo: async (caseId) => {
         const details = {
-            inspector: document.getElementById('editInspector').value.trim(),
+            填表人: document.getElementById('editInspector').value.trim(),
             auditLeader: document.getElementById('editAuditLeader').value.trim(),
             auditMembers: document.getElementById('editAuditMembers').value.trim(),
-            contractorName: document.getElementById('editContractorName').value.trim(),
-            contractorEmail: document.getElementById('editContractorEmail').value.trim(),
-            contractorManagerTitle: document.getElementById('editContractorManagerTitle').value.trim(),
-            contractorManagerEmail: document.getElementById('editContractorManagerEmail').value.trim(),
+            承辦人員姓名: document.getElementById('editContractorName').value.trim(),
+            承辦人Email: document.getElementById('editContractorEmail').value.trim(),
+            承辦課長姓名: document.getElementById('editContractorManagerTitle').value.trim(),
+            課長Email: document.getElementById('editContractorManagerEmail').value.trim(),
             closeDate: document.getElementById('editCloseDate').value || null
         };
 
@@ -1637,12 +1637,12 @@ const app = {
 
         // S2 上傳完整性驗證
         if (stage === 'stage2e' || stage === 'stage2c') {
-            const c = app.state.cases.find(x => x['案件 ID'] === id);
+            const c = app.state.cases.find(x => x['案件ID'] === id);
             if (c) {
                 const missing = [];
                 if (!c['查核領隊']) missing.push('查核領隊');
-                if (!c['承辦人姓名']) missing.push('承辦人姓名');
-                if (!c['承辦人電子信箱']) missing.push('承辦人電子信箱');
+                if (!c['承辦人員姓名'] && !c['承辦人姓名']) missing.push('承辦人員姓名');
+                if (!c['承辦人Email'] && !c['承辦人電子信箱']) missing.push('承辦人Email');
                 if (!c['最晚應核章日期']) missing.push('最晚應核章日期');
                 if (missing.length > 0) {
                     alert(`請填報人完成資料填寫。
