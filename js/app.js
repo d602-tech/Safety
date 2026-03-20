@@ -488,11 +488,11 @@ const app = {
         return 'badge-status';
     },
     
-                    getProgressHtml: (c) => {
-        const s2e = !!c['S2 員工查核檔案位置'];
-        const s2c = !!c['S2 廠商查核檔案位置'];
-        const s3 = !!c['S3 廠商及員工紀錄檔案位置'];
-        const s4 = !!c['S4 廠商結案檔案位置'];
+                        getProgressHtml: (c) => {
+        const s2e = !!c['S2員工查核檔案位置'];
+        const s2c = !!c['S2廠商查核檔案位置'];
+        const s3 = !!c['S3廠商及員工改善後核章檔案位置'];
+        const s4 = !!c['S4結案檔案位置'];
         const isClosed = c['辦理狀態'] === '第4階段-已結案';
 
         return `
@@ -512,7 +512,7 @@ const app = {
     },
 
     /** 取得案件的檔案狀態 HTML (包含圖示與下載連結) */
-                    getFileStatusHtml: (c) => {
+                        getFileStatusHtml: (c) => {
         const canAccess = app.state.user && (
             app.state.user.role === 'Admin' || 
             app.state.user.role === 'SafetyUploader' || 
@@ -520,10 +520,10 @@ const app = {
         );
 
         const stages = [
-            { key: 'S2 員工查核檔案位置', label: 'S2 員工', class: 's2', icon: 'fa-user' },
-            { key: 'S2 廠商查核檔案位置', label: 'S2 廠商', class: 's2', icon: 'fa-industry' },
-            { key: 'S3 廠商及員工紀錄檔案位置', label: 'S3', class: 's3', icon: 'fa-stamp' },
-            { key: 'S4 廠商結案檔案位置', label: 'S4 結(廠商)', class: 's4', icon: 'fa-building-circle-check' }
+            { key: 'S2員工查核檔案位置', label: 'S2 員工', class: 's2', icon: 'fa-user-shield' },
+            { key: 'S2廠商查核檔案位置', label: 'S2 廠商', class: 's2', icon: 'fa-business-time' },
+            { key: 'S3廠商及員工改善後核章檔案位置', label: 'S3', class: 's3', icon: 'fa-file-signature' },
+            { key: 'S4結案檔案位置', label: 'S4 結(廠商)', class: 's4', icon: 'fa-check-double' }
         ];
 
         return `
@@ -1353,10 +1353,10 @@ const app = {
                             <i class="fas fa-info-circle"></i> 當前狀態：<b style="color:var(--primary);">${c['辦理狀態']}</b>
                         </div>
                                                                         <div class="manage-grid">
-                            ${app.getUploadSection(id, 'stage2e', 'S2 員工', 'var(--danger)', '請僅上傳「員工版本」之 S2 檔案。', !!c['S2 員工查核檔案位置'])}
-                            ${app.getUploadSection(id, 'stage2c', 'S2 廠商', 'var(--danger)', '注意：請僅上傳「承攬商版本」之 S2 檔案。', !!c['S2 廠商查核檔案位置'])}
-                            ${app.getUploadSection(id, 'stage3', 'S3 廠商及員工', '#fbbf24', '受查部門核章版資料', !!c['S3 廠商及員工紀錄檔案位置'])}
-                            ${app.getUploadSection(id, 'stage4c', 'S4 廠商結案', 'var(--success)', '廠商完成改善結案', !!c['S4 廠商結案檔案位置'])}
+                            ${app.getUploadSection(id, 'stage2e', 'S2 員工', 'var(--danger)', '請僅上傳「員工版本」之 S2 檔案。', !!c['S2員工查核檔案位置'])}
+                            ${app.getUploadSection(id, 'stage2c', 'S2 廠商', 'var(--danger)', '注意：請僅上傳「承攬商版本」之 S2 檔案。', !!c['S2廠商查核檔案位置'])}
+                            ${app.getUploadSection(id, 'stage3', 'S3 廠商及員工改善後', '#fbbf24', '受查部門核章版資料', !!c['S3廠商及員工改善後核章檔案位置'])}
+                            ${app.getUploadSection(id, 'stage4c', 'S4 廠商結案', 'var(--success)', '廠商完成改善結案', !!c['S4結案檔案位置'])}
                         </div>
                         
                         ${(c['第2階段連結-員工'] || c['第2階段連結-廠商'] || c['第3階段連結'] || c['第4階段連結-員工'] || c['第4階段連結-承攬商']) ? `

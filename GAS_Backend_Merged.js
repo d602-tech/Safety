@@ -364,7 +364,7 @@ function registerInspection(data) {
     const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
 
     // 初始化確保欄位存在
-    const requiredHeaders = ['查核日期', '案件ID', '工程名稱', '工程簡稱', '承攬商', '主辦部門', '最晚應核章日期', '辦理狀態', '修改人員', '填表人', '查核領隊', '查核成員', '承辦人員姓名', '承辦人Email', '承辦課長姓名', '課長Email', 'S2 員工查核檔案位置', 'S2 廠商查核檔案位置', 'S3 廠商及員工紀錄檔案位置', 'S4 廠商結案檔案位置'];
+    const requiredHeaders = ['查核日期', '案件ID', '工程名稱', '工程簡稱', '承攬商', '主辦部門', '最晚應核章日期', '辦理狀態', '修改人員', '填表人', '查核領隊', '查核成員', '承辦人員姓名', '承辦人Email', '承辦課長姓名', '課長Email', 'S2員工查核檔案位置', 'S2廠商查核檔案位置', 'S3廠商及員工改善後核章檔案位置', 'S4結案檔案位置'];
     requiredHeaders.forEach(function(req) {
         if (headers.indexOf(req) === -1) {
             headers.push(req);
@@ -534,13 +534,13 @@ function uploadInspectionFile(fileInfo, caseId, stage, roleData) {
     let targetHeader = '';
     
     if (stage === 'stage2e') {
-        targetHeader = 'S2 員工查核檔案位置';
+        targetHeader = 'S2員工查核檔案位置';
     } else if (stage === 'stage2c') {
-        targetHeader = 'S2 廠商查核檔案位置';
+        targetHeader = 'S2廠商查核檔案位置';
     } else if (stage === 'stage3') {
-        targetHeader = 'S3 廠商及員工紀錄檔案位置';
+        targetHeader = 'S3廠商及員工改善後核章檔案位置';
     } else if (stage === 'stage4' || stage === 'stage4e' || stage === 'stage4c') {
-        targetHeader = 'S4 廠商結案檔案位置';
+        targetHeader = 'S4結案檔案位置';
     }
     
     urlColNum = headers.indexOf(targetHeader) + 1;
@@ -753,7 +753,7 @@ function setupSystem_(mode, year, operator) {
 
   // 模式 A: 模式：欄位檢查 / 同步 (原邏輯)
   const sheetsToCreate = [
-    { name: SHEET_AUDIT_LIST, headers: ['查核日期', '結案日期', '工程名稱', '工程簡稱', '承攬商', '主辦部門', '最晚應核章日期', '案件ID', '辦理狀態', '工作天數計算', '分數', '填表人', '查核領隊', '查核成員', '承辦人員姓名', '承辦人Email', '承辦課長姓名', '課長Email', 'S2 員工查核檔案位置', 'S2 廠商查核檔案位置', 'S3 廠商及員工紀錄檔案位置', 'S4 廠商結案檔案位置', '修改人員', '系統初始化備註'], color: '#f3f4f6' },
+    { name: SHEET_AUDIT_LIST, headers: ['查核日期', '結案日期', '工程名稱', '工程簡稱', '承攬商', '主辦部門', '最晚應核章日期', '案件ID', '辦理狀態', '工作天數計算', '分數', '填表人', '查核領隊', '查核成員', '承辦人員姓名', '承辦人Email', '承辦課長姓名', '課長Email', 'S2員工查核檔案位置', 'S2廠商查核檔案位置', 'S3廠商及員工改善後核章檔案位置', 'S4結案檔案位置', '修改人員', '系統初始化備註'], color: '#f3f4f6' },
     { name: SHEET_PROJECT_DB, headers: ['流水號', '工程簡稱', '工程名稱', '承攬商', '主辦部門', '承辦人姓名', '承辦人電子信箱', '承辦課長職稱', '承辦課長電子信箱'], color: '#f3f4f6' },
     { name: SHEET_DEFICIENCY_DB, headers: ['缺失ID', '案件ID', '工程簡稱', '缺失內容', '主辦部門', '改善期限', '狀態', '錄入者'], color: '#fef3c7' },
     { name: SHEET_CHANGE_LOG, headers: ['修改日期', '案件ID', '工程簡稱', '修改人員', '狀態', '說明', '檔案名稱', '檔案位置'], color: '#eff6ff' },
@@ -1111,7 +1111,7 @@ function getAuditRecords_() {
   let headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
 
   // 自動補齊欄位，保障所有的存取都能有這些標題
-  const requiredHeaders = ['查核日期', '結案日期', '工程名稱', '工程簡稱', '承攬商', '主辦部門', '最晚應核章日期', '案件ID', '辦理狀態', '工作天數計算', '分數', '填表人', '查核領隊', '查核成員', '承辦人員姓名', '承辦人Email', '承辦課長姓名', '課長Email', 'S2 員工查核檔案位置', 'S2 廠商查核檔案位置', 'S3 廠商及員工紀錄檔案位置', 'S4 廠商結案檔案位置', '修改人員', '系統初始化備註'];
+  const requiredHeaders = ['查核日期', '結案日期', '工程名稱', '工程簡稱', '承攬商', '主辦部門', '最晚應核章日期', '案件ID', '辦理狀態', '工作天數計算', '分數', '填表人', '查核領隊', '查核成員', '承辦人員姓名', '承辦人Email', '承辦課長姓名', '課長Email', 'S2員工查核檔案位置', 'S2廠商查核檔案位置', 'S3廠商及員工改善後核章檔案位置', 'S4結案檔案位置', '修改人員', '系統初始化備註'];
   let headersAppended = false;
   requiredHeaders.forEach(function(req) {
       if (headers.indexOf(req) === -1) {
