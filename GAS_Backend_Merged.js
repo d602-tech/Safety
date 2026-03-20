@@ -436,13 +436,36 @@ function updateCaseDetails(caseId, details, modifier) {
     const projectAbbr = sheet.getRange(rowIdx, headers.indexOf('工程簡稱') + 1).getValue();
 
     // 更新指定的欄位
-    if (details.inspector !== undefined) sheet.getRange(rowIdx, headers.indexOf('查核人員') + 1).setValue(details.inspector);
+    if (details.inspector !== undefined) {
+        var fillerCol = headers.indexOf('填表人');
+        if (fillerCol === -1) fillerCol = headers.indexOf('查核人員');
+        sheet.getRange(rowIdx, fillerCol + 1).setValue(details.inspector);
+    }
     if (details.auditLeader !== undefined) sheet.getRange(rowIdx, headers.indexOf('查核領隊') + 1).setValue(details.auditLeader);
     if (details.auditMembers !== undefined) sheet.getRange(rowIdx, headers.indexOf('查核成員') + 1).setValue(details.auditMembers);
-    if (details.contractorName !== undefined) sheet.getRange(rowIdx, headers.indexOf('承辦人姓名') + 1).setValue(details.contractorName);
-    if (details.contractorEmail !== undefined) sheet.getRange(rowIdx, headers.indexOf('承辦人電子信箱') + 1).setValue(details.contractorEmail);
-    if (details.contractorManagerTitle !== undefined) sheet.getRange(rowIdx, headers.indexOf('承辦課長職稱') + 1).setValue(details.contractorManagerTitle);
-    if (details.contractorManagerEmail !== undefined) sheet.getRange(rowIdx, headers.indexOf('承辦課長電子信箱') + 1).setValue(details.contractorManagerEmail);
+    
+    // 承辦人資訊 (相容新舊標語)
+    if (details.contractorName !== undefined) {
+        var col = headers.indexOf('承辦人員姓名');
+        if (col === -1) col = headers.indexOf('承辦人姓名');
+        sheet.getRange(rowIdx, col + 1).setValue(details.contractorName);
+    }
+    if (details.contractorEmail !== undefined) {
+        var col = headers.indexOf('承辦人Email');
+        if (col === -1) col = headers.indexOf('承辦人電子信箱');
+        sheet.getRange(rowIdx, col + 1).setValue(details.contractorEmail);
+    }
+    if (details.contractorManagerTitle !== undefined) {
+        var col = headers.indexOf('承辦課長姓名');
+        if (col === -1) col = headers.indexOf('承辦課長職稱');
+        sheet.getRange(rowIdx, col + 1).setValue(details.contractorManagerTitle);
+    }
+    if (details.contractorManagerEmail !== undefined) {
+        var col = headers.indexOf('課長Email');
+        if (col === -1) col = headers.indexOf('承辦課長電子信箱');
+        sheet.getRange(rowIdx, col + 1).setValue(details.contractorManagerEmail);
+    }
+    
     if (details.closeDate !== undefined) sheet.getRange(rowIdx, headers.indexOf('結案日期') + 1).setValue(details.closeDate ? new Date(details.closeDate) : "");
 
     sheet.getRange(rowIdx, headers.indexOf('修改人員') + 1).setValue(modifier);
