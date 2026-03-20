@@ -1605,12 +1605,21 @@ const app = {
             app.renderCaseDeficiencies(caseId);
         } catch(e) { app.showToast(e.message, "error"); } finally { app.setModalLoading(false); }
     },
-    getUploadSection: (id, stage, label, color, note = '', exists = false) => `
+    getUploadSection: (id, stage, label, color, note = '', exists = false) => {
+        const isS2 = stage === 'stage2';
+        return `
         <div class="upload-section ${exists ? 'has-file' : ''}" style="border-left: 5px solid ${color || 'var(--border)'}; position:relative;">
             ${exists ? `<span style="position:absolute; top:8px; right:8px; font-size:0.6rem; color:var(--success); background:rgba(16,185,129,0.1); padding:2px 6px; border-radius:4px;"><i class="fas fa-check"></i> 已存在</span>` : ''}
             <div class="upload-header" style="color:${color || 'inherit'}">
                 <i class="fas fa-cloud-upload-alt"></i> ${label}
             </div>
+            
+            ${isS2 ? `
+            <div class="upload-note" style="color:#ef4444; font-weight:700; background:rgba(239,68,68,0.05); padding:6px; border-radius:6px; border:1px dashed #fca5a5; margin:4px 0;">
+                <i class="fas fa-exclamation-triangle"></i> 注意：請僅上傳「承攬商版本」之 S2 檔案
+            </div>
+            ` : ''}
+            
             ${note ? `<p class="upload-note">${note}</p>` : ''}
             <div class="upload-actions">
                 <input type="file" id="file_${stage}" style="width:100%; margin-bottom:12px; font-size:0.8rem;" />
@@ -1619,7 +1628,8 @@ const app = {
                 </button>
             </div>
         </div>
-    `,
+    `;
+    },
     submitFile: async (id, stage, isReplace = false) => {
         const input = document.getElementById(`file_${stage}`);
         if(!input.files.length) return app.showToast("請先選擇檔案", "error");
@@ -1777,12 +1787,24 @@ const app = {
     },
 
     initSystem: async () => {
-        if (!confirm("確定要初始化系統分頁嗎？\n這會檢查所有必要分頁是否齊全（如查核列表、檔案歷程等），並自動補上標題列。")) return;
+        // 第一層確認
+        if (!confirm("【警告】確定要初始化系統嗎？這將重置所有試算表分頁標題，可能影響現有資料布局。")) return;
+        
+        // 第二層確認
+        if (!confirm("【再次確認】此操作不可逆，且系統所有分頁（查核、缺失、帳號等）標題列將被強制更換為標準版本。您真的確定要執行嗎？")) return;
+        
+        // 第三層確認：字串輸入
+        const input = prompt("【最終確認】請輸入「RESET」並按下確定，以執行初始化系統：");
+        if (input !== "RESET") {
+            app.showToast("輸入錯誤，初始化已取消。", "error");
+            return;
+        }
+
         app.showLoading(true);
         try {
             const res = await api.setupSystem();
             if (res.success) {
-                app.showToast(res.message);
+                app.showToast(res.message, "success");
             } else {
                 app.showToast(res.message, "error");
             }

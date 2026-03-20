@@ -492,7 +492,19 @@ function uploadInspectionFile(fileInfo, caseId, stage, roleData) {
     const targetFolder = targetFolderIterator.hasNext() ? targetFolderIterator.next() : rootFolder.createFolder(folderName);
 
     const blob = Utilities.newBlob(Utilities.base64Decode(fileInfo.base64Data), fileInfo.mimeType, newFileName);
-    const fileUrl = targetFolder.createFile(blob).getUrl();
+    const uploadedFile = targetFolder.createFile(blob);
+    const fileUrl = uploadedFile.getUrl();
+    const fileId = uploadedFile.getId();
+
+    // 【自動化抓取】上傳 S2 時提取缺失
+    if (stage === 'stage2') {
+      try {
+        extractDeficienciesFromS2_(fileId, caseId, auditData['工程簡稱'], auditData['主辦部門'], userEmail);
+      } catch (e) {
+        console.error("S2 缺失自動抓取失敗:", e);
+        // 抓取失敗不影響檔案上傳流程
+      }
+    }
 
     const currentStatus = auditData['辦理狀態'] || '';
 
@@ -1357,6 +1369,9 @@ function setupDailyTrigger_() {
 /** 共用 Header/Footer HTML */
 function _emailHeader_(title, subtitle, accentColor) {
   accentColor = accentColor || '#1e40af';
+  // 使用 SVG 替代 Emoji 以防破圖
+  const iconSvg = `<svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:0.6;"><path d="M19 21H5C4.44772 21 4 20.5523 4 20V4C4 3.44772 4.44772 3 5 3H14L20 9V20C20 20.5523 19.5523 21 19 21Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 3V9H20" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 13H16" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 17H16" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  
   return `
 <!DOCTYPE html><html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif;">
@@ -1373,7 +1388,7 @@ function _emailHeader_(title, subtitle, accentColor) {
         <div style="font-size:24px;font-weight:700;color:#ffffff;line-height:1.3;">${title}</div>
         <div style="font-size:14px;color:rgba(255,255,255,0.85);margin-top:6px;">${subtitle}</div>
       </td>
-      <td align="right" style="font-size:48px;opacity:0.3;">🏗️</td>
+      <td align="right" style="width:60px;">${iconSvg}</td>
     </tr>
   </table>
 </td></tr>
@@ -1406,8 +1421,23 @@ function _emailFooter_(systemUrl) {
 
 /** 共用案件資訊 Table */
 function _caseInfoTable_(audit) {
+  const s2Url = audit['第2階段連結'];
+  // 建立直接下載連結：將 /file/d/.../view 轉換為 /uc?export=download&id=...
+  let s2DownloadLink = '';
+  if (s2Url && s2Url.includes('/d/')) {
+    const fileId = s2Url.split('/d/')[1].split('/')[0];
+    const downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+    s2DownloadLink = `
+    <tr>
+      <td style="padding:10px 14px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;width:110px;border-bottom:1px solid #e2e8f0;background:#f8fafc;">S2 改善單</td>
+      <td style="padding:10px 14px;font-size:14px;color:#0f172a;border-bottom:1px solid #e2e8f0;">
+        <a href="${downloadUrl}" style="color:#1e40af;font-weight:700;text-decoration:none;">📥 點此直接下載 S2 檔案</a>
+      </td>
+    </tr>`;
+  }
+
   return `
-<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:16px;">
+<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:16px;border:1px solid #e2e8f0;">
   <tr style="background:#f8fafc;">
     <td style="padding:10px 14px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;width:110px;border-bottom:1px solid #e2e8f0;">工程簡稱</td>
     <td style="padding:10px 14px;font-size:14px;color:#1e293b;font-weight:600;border-bottom:1px solid #e2e8f0;">${audit['工程簡稱'] || '-'}</td>
@@ -1425,9 +1455,10 @@ function _caseInfoTable_(audit) {
     <td style="padding:10px 14px;font-size:14px;color:#1e293b;border-bottom:1px solid #e2e8f0;">${audit['主辦部門'] || '-'}</td>
   </tr>
   <tr style="background:#f8fafc;">
-    <td style="padding:10px 14px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;">核章截止日</td>
-    <td style="padding:10px 14px;font-size:14px;font-weight:700;color:#dc2626;">${audit['最晚應核章日期'] || '-'}</td>
+    <td style="padding:10px 14px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;border-bottom:1px solid #e2e8f0;">核章截止日</td>
+    <td style="padding:10px 14px;font-size:14px;color:#dc2626;font-weight:700;border-bottom:1px solid #e2e8f0;">${audit['最晚應核章日期'] || '-'}</td>
   </tr>
+  ${s2DownloadLink}
 </table>
 `;
 }
@@ -1627,5 +1658,69 @@ function getDeptAccounts_() {
     return { success: true, data: accounts };
   } catch (e) {
     throw new Error('讀取帳號管理失敗: ' + e.message);
+  }
+}
+
+/**
+ * 【自動解析】從 S2 檔案中透過 OCR 提取缺失項目
+ */
+function extractDeficienciesFromS2_(fileId, caseId, projectAbbr, deptName, email) {
+  try {
+    const file = DriveApp.getFileById(fileId);
+    
+    // 1. 透過 Drive API 建立 OCR 文字副本 (需要開啟 Drive Advanced Service)
+    // 若未開啟則會報錯於此，建議於 README 註記
+    const resource = {
+      title: 'TEMP_OCR_' + caseId,
+      mimeType: file.getMimeType()
+    };
+    
+    // 使用 Drive API v2
+    const tempFile = Drive.Files.insert(resource, file.getBlob(), { ocr: true });
+    const doc = DocumentApp.openById(tempFile.id);
+    const text = doc.getBody().getText();
+    
+    // 2. 定位標籤：「第 4 項：建議及應行改善事項」
+    const keyword = "第 4 項：建議及應行改善事項";
+    const startIdx = text.indexOf(keyword);
+    if (startIdx === -1) {
+      console.warn("S2 檔案中找不到指定關鍵字標籤");
+      Drive.Files.remove(tempFile.id); // 刪除暫存檔
+      return;
+    }
+    
+    // 3. 擷取文字內容 (到下一個「第 X 項」或結尾)
+    const contentArea = text.substring(startIdx + keyword.length);
+    const endMatch = contentArea.match(/第 [0-9一二三四五] 項/);
+    let extractedText = endMatch ? contentArea.substring(0, endMatch.index) : contentArea;
+    
+    // 4. 清洗與過濾
+    const lines = extractedText.split('\n')
+      .map(function(line) { return line.trim(); })
+      .filter(function(line) { 
+        // 過濾掉空值、標題重複、或太短的雜訊
+        return line.length > 2 && !line.includes('缺失內容') && !line.includes('改善建議');
+      });
+      
+    if (lines.length > 0) {
+      const sheet = getOrCreateDeficiencySheet_();
+      const now = new Date().getTime();
+      const rows = lines.map(function(content, idx) {
+        const newId = 'DEF' + (now + idx);
+        // 預設改善期限為查核日期 + 7 天 (或依需求調整)
+        const deadline = ""; 
+        return [newId, caseId, projectAbbr, content, deptName, deadline, '待改善', email];
+      });
+      
+      sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+      console.log(`已從 S2 自動匯入 ${lines.length} 項缺失。`);
+    }
+    
+    // 5. 清理暫存檔
+    Drive.Files.remove(tempFile.id);
+    
+  } catch (e) {
+    console.error("OCR 解析失敗:", e.message);
+    // 不中斷主流程
   }
 }
