@@ -488,56 +488,56 @@ const app = {
         return 'badge-status';
     },
     
-            getProgressHtml: (c) => {
-        const s2e = !!c['\u7b2c2\u968e\u6bb5\u9023\u7d50-\u54e1\u5de5'];
-        const s2c = !!c['\u7b2c2\u968e\u6bb5\u9023\u7d50-\u5ee0\u5546'];
-        const s3 = !!c['\u7b2c3\u968e\u6bb5\u9023\u7d50'];
-        const s4e = !!c['\u7b2c4\u968e\u6bb5\u9023\u7d50-\u54e1\u5de5'];
-        const s4c = !!c['\u7b2c4\u968e\u6bb5\u9023\u7d50-\u627f\u652c\u5546'];
-        const isClosed = c['\u8fa6\u7406\u72c0態'] === '\u7b2c4\u968e\u6bb5-\u5df2\u7d50\u6848';
+                getProgressHtml: (c) => {
+        const s2e = !!c['第2階段連結-員工'];
+        const s2c = !!c['第2階段連結-廠商'];
+        const s3 = !!c['第3階段連結'];
+        const s4e = !!c['第4階段連結-員工'];
+        const s4c = !!c['第4階段連結-承攬商'];
+        const isClosed = c['辦理狀態'] === '第4階段-已結案';
 
         return `
             <div class="progress-container">
                 <div class="progress-label">
                     <span>階段進度</span>
-                    <span>\${isClosed ? '100%' : ((s4e && s4c) ? '80%' : (s4e || s4c ? '70%' : (s3 ? '50%' : (s2e || s2c ? '25%' : '0%'))))}</span>
+                    <span>${isClosed ? '100%' : ((s4e && s4c) ? '80%' : (s4e || s4c ? '70%' : (s3 ? '50%' : (s2e || s2c ? '25%' : '0%'))))}</span>
                 </div>
                 <div class="progress-track">
-                    <div class="progress-step step-s1 active" title="S1: \u5df2\u767b\u9304"></div>
-                    <div class="progress-step step-s2 \${s2e || s2c || s3 || s4e || s4c ? 'active' : ''}" title="S2: \u54e1/\u5ee0\u5de0\u5584\u55ae"></div>
-                    <div class="progress-step step-s3 \${s3 || s4e || s4c ? 'active' : ''}" title="S3: \u5ee0\u5546\u53ca\u54e1\u5de5"></div>
-                    <div class="progress-step step-s4 \${s4e || s4c || isClosed ? 'active' : ''}" title="S4: \u7d50\u6848 (\u54e1/\u5ee0)"></div>
+                    <div class="progress-step step-s1 active" title="S1: 已登錄"></div>
+                    <div class="progress-step step-s2 ${s2e || s2c || s3 || s4e || s4c ? 'active' : ''}" title="S2: 員/廠改善單"></div>
+                    <div class="progress-step step-s3 ${s3 || s4e || s4c ? 'active' : ''}" title="S3: 廠商及員工"></div>
+                    <div class="progress-step step-s4 ${s4e || s4c || isClosed ? 'active' : ''}" title="S4: 結案 (員/廠)"></div>
                 </div>
             </div>
         `;
     },
 
     /** 取得案件的檔案狀態 HTML (包含圖示與下載連結) */
-            getFileStatusHtml: (c) => {
+                getFileStatusHtml: (c) => {
         const canAccess = app.state.user && (
             app.state.user.role === 'Admin' || 
             app.state.user.role === 'SafetyUploader' || 
-            (app.state.user.role === 'DepartmentUploader' && c['\u4e3b\u8fa6\u90e8\u9580'] === app.state.user.department)
+            (app.state.user.role === 'DepartmentUploader' && c['主辦部門'] === app.state.user.department)
         );
 
         const stages = [
-            { key: '\u7b2c2\u968e\u6bb5\u9023\u7d50-\u54e1\u5de5', label: 'S2 \u54e1\u5de5', class: 's2', icon: 'fa-user' },
-            { key: '\u7b2c2\u968e\u6bb5\u9023\u7d50-\u5ee0\u5546', label: 'S2 \u5ee0\u5546', class: 's2', icon: 'fa-industry' },
-            { key: '\u7b2c3\u968e\u6bb5\u9023\u7d50', label: 'S3', class: 's3', icon: 'fa-stamp' },
-            { key: '\u7b2c4\u968e\u6bb5\u9023\u7d50-\u54e1\u5de5', label: 'S4 \u7d50(\u54e1\u5de5)', class: 's4', icon: 'fa-user-check' },
-            { key: '\u7b2c4\u968e\u6bb5\u9023\u7d50-\u627f\u652c\u5546', label: 'S4 \u7d50(\u5ee0\u5546)', class: 's4', icon: 'fa-building-circle-check' }
+            { key: '第2階段連結-員工', label: 'S2 員工', class: 's2', icon: 'fa-user' },
+            { key: '第2階段連結-廠商', label: 'S2 廠商', class: 's2', icon: 'fa-industry' },
+            { key: '第3階段連結', label: 'S3', class: 's3', icon: 'fa-stamp' },
+            { key: '第4階段連結-員工', label: 'S4 結(員工)', class: 's4', icon: 'fa-user-check' },
+            { key: '第4階段連結-承攬商', label: 'S4 結(廠商)', class: 's4', icon: 'fa-building-circle-check' }
         ];
 
         return `
             <div class="file-status-icons">
-                \${stages.map(s => {
+                ${stages.map(s => {
                     const url = c[s.key];
                     if (url && canAccess) {
-                        return \`<a href="\${url}" target="_blank" class="file-icon uploaded \${s.class}" title="\u5df2\u4e0a\u50b3 \${s.label}"><i class="fas \${s.icon}"></i> \${s.label}</a>\`;
+                        return `<a href="${url}" target="_blank" class="file-icon uploaded ${s.class}" title="已上傳 ${s.label}"><i class="fas ${s.icon}"></i> ${s.label}</a>`;
                     } else if (url && !canAccess) {
-                        return \`<div class="file-icon uploaded" title="\u5df2\u4e0a\u50b3\uff0c\u4f46\u60a8\u7121\u6b0a\u4e0b\u8f09" style="color:var(--text-muted);"><i class="fas fa-lock"></i> \${s.label}</div>\`;
+                        return `<div class="file-icon uploaded" title="已上傳，但您無權下載" style="color:var(--text-muted);"><i class="fas fa-lock"></i> ${s.label}</div>`;
                     } else {
-                        return \`<div class="file-icon missing" title="\${s.label} \u5c1a\u672a\u4e0a\u50b3"><i class="fas \${s.icon}"></i> \${s.label}</div>\`;
+                        return `<div class="file-icon missing" title="${s.label} 尚未上傳"><i class="fas ${s.icon}"></i> ${s.label}</div>`;
                     }
                 }).join('')}
             </div>
@@ -1355,11 +1355,11 @@ const app = {
                             <i class="fas fa-info-circle"></i> 當前狀態：<b style="color:var(--primary);">${c['辦理狀態']}</b>
                         </div>
                                                                         <div class="manage-grid">
-                            \${app.getUploadSection(id, 'stage2e', 'S2 \u54e1\u5de5', 'var(--danger)', '\u8acb\u5045\u4e0a傳「\u54e1\u5de5\u7248\u672c」\u4e4b\u0020S2\u0020\u6a14\u6848\u3002', !!c['\u7b2c2\u968e段\u9023\u7d50-\u54e1\u5de5'])}
-                            \${app.getUploadSection(id, 'stage2c', 'S2 \u5ee0\u5546', 'var(--danger)', '\u6ce8\u610f：\u8acb\u5045\u4e0a傳「\u627f攬\u5546\u7248\u672c」\u4e4b\u0020S2\u0020\u6a14\u6848\u3002', !!c['\u7b2c2\u968e段\u9023\u7d50-\u5ee0商'])}
-                            \${app.getUploadSection(id, 'stage3', 'S3 \u5ee0\u5546\u53ca\u54e1\u5de5', '#fbbf24', '\u53d7查部門核章版資料', !!c['\u7b2c3\u968e段\u9023\u7d50'])}
-                            \${app.getUploadSection(id, 'stage4e', 'S4 \u7d50(\u54e1\u5de5)', 'var(--success)', '\u627f辦人已完成結案報告', !!c['\u7b2c4\u968e段\u9023\u7d50-\u54e1\u5de5'])}
-                            \${app.getUploadSection(id, 'stage4c', 'S4 \u7d50(\u5ee0\u5546)', 'var(--success)', '\u5ee0\u5546完成改善結案', !!c['\u7b2c4\u968e段\u9023\u7d50-\u627f攬\u5546'])}
+                            ${app.getUploadSection(id, 'stage2e', 'S2 員工', 'var(--danger)', '請僅上傳「員工版本」之 S2 檔案。', !!c['第2階段連結-員工'])}
+                            ${app.getUploadSection(id, 'stage2c', 'S2 廠商', 'var(--danger)', '注意：請僅上傳「承攬商版本」之 S2 檔案。', !!c['第2階段連結-廠商'])}
+                            ${app.getUploadSection(id, 'stage3', 'S3 廠商及員工', '#fbbf24', '受查部門核章版資料', !!c['第3階段連結'])}
+                            ${app.getUploadSection(id, 'stage4e', 'S4 結(員工)', 'var(--success)', '承辦人完成結案報告', !!c['第4階段連結-員工'])}
+                            ${app.getUploadSection(id, 'stage4c', 'S4 結(廠商)', 'var(--success)', '廠商完成改善結案', !!c['第4階段連結-承攬商'])}
                         </div>
                         
                         ${(c['第2階段連結-員工'] || c['第2階段連結-廠商'] || c['第3階段連結'] || c['第4階段連結-員工'] || c['第4階段連結-承攬商']) ? `
