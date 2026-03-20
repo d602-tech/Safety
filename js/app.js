@@ -1477,31 +1477,6 @@ const app = {
         e.target.classList.add('active');
         document.getElementById(tabId).classList.add('active');
     },
-        submitEditCaseInfo: async (caseId) => {
-        const details = {
-            inspector: document.getElementById('editInspector').value.trim(),
-            auditLeader: document.getElementById('editAuditLeader').value.trim(),
-            auditMembers: document.getElementById('editAuditMembers').value.trim(),
-            contractorName: document.getElementById('editContractorName').value.trim(),
-            contractorEmail: document.getElementById('editContractorEmail').value.trim(),
-            contractorManagerTitle: document.getElementById('editContractorManagerTitle').value.trim(),
-            contractorManagerEmail: document.getElementById('editContractorManagerEmail').value.trim(),
-            closeDate: document.getElementById('editCloseDate').value || null
-        };
-
-        app.setModalLoading(true);
-        try {
-            const res = await api.updateCase(caseId, details, app.state.user.email);
-            app.state.cases = res.records;
-            app.updateStats();
-            app.renderView();
-            app.showToast("✅ 案件資料更新成功");
-        } catch (e) {
-            app.showToast(e.message, "error");
-        } finally {
-            app.setModalLoading(false);
-        }
-    },
     renderCaseDeficiencies: (caseId) => {
         const listDiv = document.getElementById('caseDefsList');
         if (!listDiv) return;
@@ -2335,8 +2310,7 @@ const app = {
         } finally {
             app.setModalLoading(false);
         }
-    }
-};
+    },
 
 
     /** ======================== 第 10 次優化：部門人員清單管理 (Admin) ======================== */
@@ -2459,5 +2433,7 @@ const app = {
             app.renderDeptMembersView();
         } catch (e) { app.showToast(e.message, "error"); }
     },
+
+};
 
 window.onload = () => app.initAuth();
