@@ -21,6 +21,7 @@ const SHEET_DEFICIENCY_DB = '缺失清單';
 const SHEET_USER_PERMISSIONS = '使用者權限';
 const SHEET_FILE_HISTORY = '檔案歷程';
 const SHEET_DEPT_ACCOUNTS = '帳號管理';
+const SHEET_DEPT_LIST = '部門清單';
 
 // ── 測試模式設定（優先讀 Script Properties，讀不到則用下方預設值）──
 const _props = PropertiesService.getScriptProperties();
@@ -205,6 +206,20 @@ function doPost(e) {
         result = saveUser_(payload);
         break;
 
+      case 'get_dept_members':
+        result = getDeptMembers_();
+        break;
+
+      case 'save_dept_member':
+        if(roleData.role !== 'Admin') throw new Error("無權限管理部門清單。");
+        result = saveDeptMember_(payload);
+        break;
+
+      case 'delete_dept_member':
+        if(roleData.role !== 'Admin') throw new Error("無權限管理部門清單。");
+        result = deleteDeptMember_(payload.id);
+        break;
+
       default:
         throw new Error("未定義的 Action: " + action);
     }
@@ -337,7 +352,8 @@ function getInitialDataForUser_(roleData) {
       role: roleData.role,
       department: roleData.department,
       cases: userCases,
-      projects: baseData.projects
+      projects: baseData.projects,
+      deptMembers: getDeptMembers_().data
     }
   };
 }
@@ -782,7 +798,8 @@ function setupSystem_(mode, year, operator) {
     { name: SHEET_CHANGE_LOG, headers: ['修改日期', '案件ID', '工程簡稱', '修改人員', '狀態', '說明', '檔案名稱', '檔案位置'], color: '#eff6ff' },
     { name: SHEET_FILE_HISTORY, headers: ['異動日期', '異動人員', '案件ID', '異動內容', '檔案類型', '檔案連結', '狀態'], color: '#d1fae5' },
     { name: SHEET_USER_PERMISSIONS, headers: ['信箱 (Email)', '姓名 (Name)', '角色 (Role)', '所屬部門 (Department)', '啟用狀態 (Active)'], color: '#f3f4f6' },
-    { name: SHEET_DEPT_ACCOUNTS, headers: ['部門名稱', '承辦人姓名', '承辦人Email', '課長姓名', '課長Email', '備註', '建立日期'], color: '#e0f2fe' }
+    { name: SHEET_DEPT_ACCOUNTS, headers: ['部門名稱', '承辦人姓名', '承辦人Email', '課長姓名', '課長Email', '備註', '建立日期'], color: '#e0f2fe' },
+    { name: SHEET_DEPT_LIST, headers: ['ID', '主辦部門', '職稱', '姓名', '信箱'], color: '#fdf2f8' }
   ];
 
   sheetsToCreate.forEach(cfg => {
@@ -1406,7 +1423,7 @@ function runDailyReminderJob_() {
         if (contractorEmail) {
           GmailApp.sendEmail(
             contractorEmail,
-            `【工安查核】${audit['工程簡稱']} 改善單已上傳，可線上修改`,
+            `第1階段，查核報告電子檔已上傳可先行轉知廠商修改，詳如說明，請查照`,
             '',
             { htmlBody: buildStage1EmailHtml_(audit) }
           );
@@ -1608,7 +1625,7 @@ function buildStage1EmailHtml_(audit) {
   </p>
   <p style="font-size:15px;color:#334155;line-height:1.7;margin:0 0 20px;">
     系統已偵測到以下案件的<strong>「S2 原始改善單」已上傳</strong>，
-    承辦人員可<strong style="color:#0f766e;">先行至系統線上修改</strong>相關內容，
+    承辦人員可<strong style="color:#0f766e;">先行轉知廠商修改</strong>相關內容，
     紙本文件可於後續補送。
   </p>
 
@@ -1851,5 +1868,80 @@ function extractDeficienciesFromS2_(fileId, caseId, projectAbbr, deptName, email
   } catch (e) {
     console.error("OCR 解析失敗:", e.message);
     // 不中斷主流程
+  }
+}
+
+// ==================== 部門清單管理 (第 10 次優化新增) ====================
+
+function getDeptMembers_() {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let sheet = ss.getSheetByName(SHEET_DEPT_LIST);
+    if (!sheet) return { success: true, data: [] };
+    const data = sheet.getDataRange().getValues();
+    if (data.length < 2) return { success: true, data: [] };
+    
+    const headers = data[0];
+    const members = data.slice(1).map(row => {
+      const obj = {};
+      headers.forEach((h, i) => obj[h] = row[i]);
+      return obj;
+    }).filter(m => m['主辦部門'] && m['姓名']);
+    
+    return { success: true, data: members };
+  } catch (e) {
+    return { success: false, message: e.message };
+  }
+}
+
+function saveDeptMember_(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let sheet = ss.getSheetByName(SHEET_DEPT_LIST);
+    if (!sheet) {
+      sheet = ss.insertSheet(SHEET_DEPT_LIST);
+      sheet.appendRow(['ID', '主辦部門', '職稱', '姓名', '信箱']);
+    }
+    
+    const data = sheet.getDataRange().getValues();
+    const id = payload.ID || ('M' + new Date().getTime());
+    const rowData = [id, payload['主辦部門'], payload['職稱'], payload['姓名'], payload['信箱']];
+    
+    let existingRow = -1;
+    if (payload.ID) {
+      for (let i = 1; i < data.length; i++) {
+        if (data[i][0] === payload.ID) {
+          existingRow = i + 1;
+          break;
+        }
+      }
+    }
+    
+    if (existingRow > -1) {
+      sheet.getRange(existingRow, 1, 1, 5).setValues([rowData]);
+    } else {
+      sheet.appendRow(rowData);
+    }
+    
+    return { success: true, message: "資料已儲存" };
+  } catch (e) {
+    return { success: false, message: e.message };
+  }
+}
+
+function deleteDeptMember_(id) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(SHEET_DEPT_LIST);
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === id) {
+        sheet.deleteRow(i + 1);
+        return { success: true, message: "資料已刪除" };
+      }
+    }
+    return { success: false, message: "找不到該資料" };
+  } catch (e) {
+    return { success: false, message: e.message };
   }
 }

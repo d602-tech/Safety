@@ -107,5 +107,10 @@ const api = {
 
     // 帳號管理
     registerDeptAccount: (data) => api.request('register_dept_account', data),
-    getDeptAccounts: () => api.request('get_dept_accounts')
+    getDeptAccounts: () => api.request('get_dept_accounts'),
+
+    // 部門人員清單 (第 10 次優化新增)
+    getDeptMembers: () => api.request('get_dept_members'),
+    saveDeptMember: (data) => api.request('save_dept_member', data),
+    deleteDeptMember: (id) => api.request('delete_dept_member', { id })
 };

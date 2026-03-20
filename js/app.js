@@ -41,7 +41,8 @@ const app = {
         theme: localStorage.getItem('theme') || 'light',
         calDate: new Date(),
         searchKeyword: '',
-        systemMode: localStorage.getItem('systemMode') || 'progress' // progress, tracking
+        systemMode: localStorage.getItem('systemMode') || 'progress', // progress, tracking
+        deptMembers: [] // 第 10 次優化：部門人員清單
     },
 
     /** ======================== 全域通知與顯示 ======================== */
@@ -174,6 +175,7 @@ const app = {
             app.state.user = { email: res.data.email, role: res.data.role, department: res.data.department };
             app.state.cases = res.data.cases || [];
             app.state.projects = res.data.projects || [];
+            app.state.deptMembers = res.data.deptMembers || []; // 載入部門成員資料
 
             document.getElementById('userNameDisplay').innerText = `${app.state.user.email}`;
             document.getElementById('logoutBtn').classList.remove('hidden');
@@ -300,6 +302,8 @@ const app = {
             if (btnAdminUsers) btnAdminUsers.classList.remove('hidden');
             const btnInitSystem = document.getElementById('btnInitSystem');
             const btnDeptAccounts = document.getElementById('btnDeptAccounts');
+            const btnDeptList = document.getElementById('btnDeptList');
+            if (btnDeptList) btnDeptList.classList.remove('hidden');
             const btnTestEmail = document.getElementById('btnTestEmail');
             const btnRunReminder = document.getElementById('btnRunReminder');
             const btnSetupTrigger = document.getElementById('btnSetupTrigger');
@@ -522,7 +526,7 @@ const app = {
         const stages = [
             { key: 'S2員工查核檔案位置', label: 'S2 員工', class: 's2', icon: 'fa-user-shield' },
             { key: 'S2廠商查核檔案位置', label: 'S2 廠商', class: 's2', icon: 'fa-business-time' },
-            { key: 'S3廠商及員工改善後核章檔案位置', label: 'S3', class: 's3', icon: 'fa-file-signature' },
+            { key: 'S3廠商及員工改善後核章檔案位置', label: 'S3改善後', class: 's3', icon: 'fa-file-signature' },
             { key: 'S4結案檔案位置', label: 'S4 結(廠商)', class: 's4', icon: 'fa-check-double' }
         ];
 
@@ -578,16 +582,7 @@ const app = {
         });
     },
 
-    copyToClipboard: (elementId) => {
-        const textToCopy = document.getElementById(elementId)?.innerText;
-        if (!textToCopy) return;
-        navigator.clipboard.writeText(textToCopy).then(() => {
-            app.showToast("路徑已複製！", "success");
-        }).catch(err => {
-            console.error('Copy failed', err);
-            app.showToast("複製失敗，請手動選取複製", "error");
-        });
-    },
+    
 
     exportToCSV: () => {
         const cases = app.getFilteredCases();
@@ -1404,28 +1399,63 @@ const app = {
                     </div>
                     
                     <!-- 分頁三：編輯案件資料 -->
-                    <div id="tabInfo" class="tab-content" style="max-height:60vh; overflow-y:auto; padding:5px;">
-                        <h4 style="margin:0 0 10px 0; color:var(--primary); border-bottom:1px solid var(--border); padding-bottom:5px;">查核人員資訊</h4>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
-                            <div><label>填表人</label><input type="text" id="editInspector" value="${c['填表人']||c['查核人員']||''}"></div>
-                            <div><label>查核領隊</label><input type="text" id="editAuditLeader" value="${c['查核領隊']||''}"></div>
-                            <div style="grid-column:1/-1"><label>查核成員</label><input type="text" id="editAuditMembers" list="auditMembersList" value="${c['查核成員']||''}"></div>
+                    <div id="tabInfo" class="tab-content" style="max-height:60vh; overflow-y:auto; padding:10px; background:#f8fafc; border-radius:12px;">
+                        <div style="background:white; padding:15px; border-radius:10px; box-shadow:0 2px 4px rgba(0,0,0,0.05); margin-bottom:15px;">
+                            <h4 style="margin:0 0 12px 0; color:var(--primary); display:flex; align-items:center; gap:8px;">
+                                <i class="fas fa-users-cog"></i> 查核人員資訊
+                            </h4>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                                <div><label style="font-size:0.8rem; color:var(--text-muted);">填表人</label><input type="text" id="editInspector" value="${c['填表人']||c['查核人員']||''}" style="width:100%"></div>
+                                <div><label style="font-size:0.8rem; color:var(--text-muted);">查核領隊</label><input type="text" id="editAuditLeader" value="${c['查核領隊']||''}" style="width:100%"></div>
+                            </div>
+                            <div style="margin-top:12px;">
+                                <label style="font-size:0.8rem; color:var(--text-muted); display:flex; justify-content:space-between;">
+                                    查核成員 
+                                    <button class="btn btn-outline" style="padding:2px 8px; font-size:0.7rem;" onclick="app.addAuditMemberRow()">
+                                        <i class="fas fa-plus"></i> 新增成員
+                                    </button>
+                                </label>
+                                <div id="auditMembersContainer" style="margin-top:8px;">
+                                    <!-- 動態渲染成員列 -->
+                                </div>
+                            </div>
                         </div>
 
-                        <h4 style="margin:0 0 10px 0; color:var(--primary); border-bottom:1px solid var(--border); padding-bottom:5px;">承辦聯絡資訊</h4>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
-                            <div><label>承辦人員姓名</label><input type="text" id="editContractorName" value="${c['承辦人員姓名']||c['承辦人姓名']||''}"></div>
-                            <div><label>承辦人Email</label><input type="text" id="editContractorEmail" value="${c['承辦人Email']||c['承辦人電子信箱']||''}"></div>
-                            <div><label>承辦課長姓名</label><input type="text" id="editContractorManagerTitle" value="${c['承辦課長姓名']||c['承辦課長職稱']||''}"></div>
-                            <div><label>課長Email</label><input type="text" id="editContractorManagerEmail" value="${c['課長Email']||c['承辦課長電子信箱']||''}"></div>
+                        <div style="background:white; padding:15px; border-radius:10px; box-shadow:0 2px 4px rgba(0,0,0,0.05); margin-bottom:15px;">
+                            <h4 style="margin:0 0 12px 0; color:var(--primary); display:flex; align-items:center; gap:8px;">
+                                <i class="fas fa-id-card"></i> 承辦聯絡資訊
+                            </h4>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                                <div style="grid-column:1/-1">
+                                    <label style="font-size:0.8rem; color:var(--text-muted);">主辦部門</label>
+                                    <select id="editDept" onchange="app.handleDeptChange(this.value)" style="width:100%">
+                                        <option value="">-- 請選擇部門 --</option>
+                                        ${Array.from(new Set(app.state.deptMembers.map(m => m['主辦部門']))).map(d => `<option value="${d}" ${d === c['主辦部門'] ? 'selected' : ''}>${d}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="font-size:0.8rem; color:var(--text-muted);">承辦人員姓名</label>
+                                    <select id="editContractorName" onchange="app.handleNameChange(this.value)" style="width:100%">
+                                        <option value="">-- 請選擇人員 --</option>
+                                        ${app.state.deptMembers.filter(m => m['主辦部門'] === c['主辦部門']).map(m => `<option value="${m['姓名']}" ${m['姓名'] === (c['承辦人員姓名']||c['承辦人姓名']) ? 'selected' : ''}>${m['姓名']}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div><label style="font-size:0.8rem; color:var(--text-muted);">承辦人Email</label><input type="text" id="editContractorEmail" value="${c['承辦人Email']||c['承辦人電子信箱']||''}" style="width:100%"></div>
+                                <div><label style="font-size:0.8rem; color:var(--text-muted);">承辦課長姓名</label><input type="text" id="editContractorManagerTitle" value="${c['承辦課長姓名']||c['承辦課長職稱']||''}" style="width:100%"></div>
+                                <div><label style="font-size:0.8rem; color:var(--text-muted);">課長Email</label><input type="text" id="editContractorManagerEmail" value="${c['課長Email']||c['承辦課長電子信箱']||''}" style="width:100%"></div>
+                            </div>
                         </div>
 
-                        <h4 style="margin:0 0 10px 0; color:var(--danger); border-bottom:1px solid var(--border); padding-bottom:5px;">案件狀態資訊</h4>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
-                            <div><label>結案日期</label><input type="date" id="editCloseDate" value="${c['結案日期'] ? new Date(c['結案日期']).toISOString().split('T')[0] : ''}"></div>
+                        <div style="background:white; padding:15px; border-radius:10px; box-shadow:0 2px 4px rgba(0,0,0,0.05); margin-bottom:15px;">
+                            <h4 style="margin:0 0 12px 0; color:var(--danger); display:flex; align-items:center; gap:8px;">
+                                <i class="fas fa-calendar-check"></i> 案件狀態資訊
+                            </h4>
+                            <div><label style="font-size:0.8rem; color:var(--text-muted);">結案日期</label><input type="date" id="editCloseDate" value="${c['結案日期'] ? new Date(c['結案日期']).toISOString().split('T')[0] : ''}" style="width:100%"></div>
                         </div>
 
-                        <button class="btn btn-primary" style="width:100%; justify-content:center; margin-top:10px;" onclick="app.submitEditCaseInfo('${id}')">儲存資料變更</button>
+                        <button class="btn btn-primary" style="width:100%; justify-content:center; height:45px; font-size:1rem;" onclick="app.submitEditCaseInfo('${id}')">
+                            <i class="fas fa-save"></i> 儲存資料變更
+                        </button>
                     </div>
 
                 </div>
@@ -1433,6 +1463,7 @@ const app = {
             const projInfo = app.state.projects.find(p => p.abbr === c['工程簡稱']);
             const snLabel = projInfo ? `${projInfo.serial} - ` : '';
             app.openModal(`案件管理: ${snLabel}${c['工程簡稱']}`, html);
+            setTimeout(() => app.renderAuditMemberInputs(c['查核成員']), 50);
         }
         
         // 延時載入缺失清單（確保 DOM 已渲染）
@@ -2222,6 +2253,64 @@ const app = {
         `);
     },
 
+
+    /** ======================== 第 10 次優化：動態表單連動邏輯 ======================== */
+    
+    // 渲染查核成員輸入列
+    renderAuditMemberInputs: (membersStr) => {
+        const container = document.getElementById('auditMembersContainer');
+        if (!container) return;
+        const members = membersStr ? membersStr.split(/[,、]/).map(m => m.trim()).filter(Boolean) : [''];
+        container.innerHTML = members.map((m, i) => app.getAuditMemberRowHtml(m)).join('');
+    },
+
+    getAuditMemberRowHtml: (name = '') => {
+        return `
+            <div class="audit-member-row" style="display:flex; gap:8px; margin-bottom:8px;">
+                <input type="text" class="audit-member-input" value="${name}" placeholder="姓名" style="flex:1;">
+                <button class="btn btn-outline" style="padding:4px 8px; color:var(--danger);" onclick="this.parentElement.remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+    },
+
+    addAuditMemberRow: () => {
+        const container = document.getElementById('auditMembersContainer');
+        if (container) {
+            const div = document.createElement('div');
+            div.innerHTML = app.getAuditMemberRowHtml();
+            container.appendChild(div.firstElementChild);
+        }
+    },
+
+    // 處理部門連動
+    handleDeptChange: (dept) => {
+        const nameSelect = document.getElementById('editContractorName');
+        const emailInput = document.getElementById('editContractorEmail');
+        if (!nameSelect) return;
+
+        // 篩選該部門人員
+        const members = app.state.deptMembers.filter(m => m['主辦部門'] === dept);
+        
+        let html = '<option value="">-- 請選擇 --</option>';
+        html += members.map(m => `<option value="${m['姓名']}">${m['姓名']} (${m['職稱'] || ''})</option>`).join('');
+        nameSelect.innerHTML = html;
+        emailInput.value = ''; // 重置 Email
+    },
+
+    // 處理姓名連動 Email
+    handleNameChange: (name) => {
+        const dept = document.getElementById('editDept')?.value;
+        const emailInput = document.getElementById('editContractorEmail');
+        if (!emailInput) return;
+
+        const member = app.state.deptMembers.find(m => m['主辦部門'] === dept && m['姓名'] === name);
+        if (member) {
+            emailInput.value = member['信箱'] || '';
+        }
+    },
+
     submitRegisterDeptAccount: async () => {
         const deptName = document.getElementById('daName')?.value.trim();
         const contractorEmail = document.getElementById('daCtEmail')?.value.trim();
@@ -2248,5 +2337,127 @@ const app = {
         }
     }
 };
+
+
+    /** ======================== 第 10 次優化：部門人員清單管理 (Admin) ======================== */
+    
+    renderDeptMembersView: async () => {
+        app.state.currentView = 'deptMembers';
+        app.renderActiveNav();
+        const container = document.getElementById('mainContent');
+        container.innerHTML = `
+            <div class="view-header">
+                <div>
+                    <h1><i class="fas fa-users-cog"></i> 部門人員清單管理</h1>
+                    <p class="view-subtitle">管理各部門主辦人員與聧稱，供案件自動連動使用</p>
+                </div>
+                <button class="btn btn-primary" onclick="app.openDeptMemberEditModal()">
+                    <i class="fas fa-plus"></i> 新增人員
+                </button>
+            </div>
+
+            <div id="deptMembersGrid" class="cards-grid">
+                <div style="grid-column:1/-1; text-align:center; padding:50px;">
+                    <i class="fas fa-spinner fa-spin fa-2x"></i><br>載入中...
+                </div>
+            </div>
+        `;
+        await app.fetchDeptMembers();
+    },
+
+    fetchDeptMembers: async () => {
+        try {
+            const res = await api.getDeptMembers();
+            app.state.deptMembers = res.data || [];
+            app.renderDeptMembersGrid();
+        } catch (e) { app.showToast(e.message, "error"); }
+    },
+
+    renderDeptMembersGrid: () => {
+        const grid = document.getElementById('deptMembersGrid');
+        if (!grid) return;
+        
+        if (!app.state.deptMembers.length) {
+            grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:50px; color:var(--text-muted);">尚無人員資料</div>';
+            return;
+        }
+
+        grid.innerHTML = app.state.deptMembers.map(m => `
+            <div class="card" style="position:relative; border-top: 4px solid var(--primary);">
+                <div style="font-weight:700; font-size:1.1rem; margin-bottom:5px;">${m['姓名']}</div>
+                <div style="color:var(--text-muted); font-size:0.9rem; margin-bottom:10px;">
+                    <i class="fas fa-building"></i> ${m['主辦部門']} / ${m['職稱'] || '未設定'}
+                </div>
+                <div style="font-size:0.85rem; color:var(--primary); word-break:break-all;">
+                    <i class="fas fa-envelope"></i> ${m['信箱'] || '-'}
+                </div>
+                <div style="margin-top:15px; display:flex; gap:10px; border-top:1px solid var(--border); padding-top:12px;">
+                    <button class="btn btn-outline" style="flex:1; font-size:0.8rem;" onclick='app.openDeptMemberEditModal(${JSON.stringify(m).replace(/'/g, "&apos;")})'>
+                        <i class="fas fa-edit"></i> 編輯
+                    </button>
+                    <button class="btn btn-outline" style="color:var(--danger); flex:1; font-size:0.8rem;" onclick="app.deleteDeptMember('${m.ID}')">
+                        <i class="fas fa-trash-alt"></i> 刪除
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    },
+
+    openDeptMemberEditModal: (m = {}) => {
+        const isEdit = !!m.ID;
+        const html = `
+            <div style="display:grid; gap:15px;">
+                <div>
+                    <label>主辦部門 *</label>
+                    <input type="text" id="dmDept" value="${m['主辦部門'] || ''}" list="deptDatalist" placeholder="例：工務部">
+                    <datalist id="deptDatalist">
+                        ${Array.from(new Set(app.state.cases.map(c => c['主辦部門']))).map(d => `<option value="${d}">`).join('')}
+                    </datalist>
+                </div>
+                <div>
+                    <label>職稱</label>
+                    <input type="text" id="dmTitle" value="${m['職稱'] || ''}" placeholder="例：主辦">
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div><label>姓名 *</label><input type="text" id="dmName" value="${m['姓名'] || ''}"></div>
+                    <div><label>信箱</label><input type="email" id="dmEmail" value="${m['信箱'] || ''}"></div>
+                </div>
+                <button class="btn btn-primary" style="margin-top:10px; justify-content:center;" onclick="app.submitDeptMember('${m.ID || ''}')">
+                    <i class="fas fa-save"></i> ${isEdit ? '更新儲存' : '確認新增'}
+                </button>
+            </div>
+        `;
+        app.openModal(isEdit ? '編輯人員' : '新增部門人員', html);
+    },
+
+    submitDeptMember: async (id) => {
+        const payload = {
+            ID: id,
+            '主辦部門': document.getElementById('dmDept').value.trim(),
+            '職稱': document.getElementById('dmTitle').value.trim(),
+            '姓名': document.getElementById('dmName').value.trim(),
+            '信箱': document.getElementById('dmEmail').value.trim()
+        };
+
+        if (!payload['主辦部門'] || !payload['姓名']) return app.showToast("部門與姓名為必填", "error");
+
+        app.setModalLoading(true);
+        try {
+            await api.saveDeptMember(payload);
+            app.showToast("儲存成功", "success");
+            app.closeModal();
+            app.renderDeptMembersView(); // 重新載入
+        } catch (e) { app.showToast(e.message, "error"); }
+        finally { app.setModalLoading(false); }
+    },
+
+    deleteDeptMember: async (id) => {
+        if (!confirm("確定要刪除此人員嗎？")) return;
+        try {
+            await api.deleteDeptMember(id);
+            app.showToast("已刪除", "success");
+            app.renderDeptMembersView();
+        } catch (e) { app.showToast(e.message, "error"); }
+    },
 
 window.onload = () => app.initAuth();
