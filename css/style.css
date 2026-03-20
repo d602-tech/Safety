@@ -490,7 +490,7 @@ body {
 .file-icon i {
     font-size: 1.1rem;
 }
-.file-icon.uploaded.s2 { color: var(--warning); }
+.file-icon.uploaded.s2 { color: var(--danger); }
 .file-icon.uploaded.s3 { color: var(--info); }
 .file-icon.uploaded.s4 { color: var(--success); }
 .file-icon.missing {

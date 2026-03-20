@@ -91,7 +91,10 @@ const api = {
     saveUser: (data) => api.request('save_user', data),
 
     // 系統初始化
-    setupSystem: () => api.request('setup_system'),
+    setupSystem: (mode, year) => api.request('setup_system', { mode, year }),
+
+    // 取得系統統計資訊
+    getSystemMetadata: () => api.request('get_system_metadata'),
 
     // 測試信件 (Admin)
     testSendEmail: () => api.request('test_send_email'),

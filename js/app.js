@@ -488,54 +488,56 @@ const app = {
         return 'badge-status';
     },
     
-    getProgressHtml: (c) => {
-        const s2 = !!c['第2階段連結'];
-        const s3 = !!c['第3階段連結'];
-        const s4e = !!c['第4階段連結-員工'];
-        const s4c = !!c['第4階段連結-承攬商'];
-        const isClosed = c['辦理狀態'] === '第4階段-已結案';
+            getProgressHtml: (c) => {
+        const s2e = !!c['\u7b2c2\u968e\u6bb5\u9023\u7d50-\u54e1\u5de5'];
+        const s2c = !!c['\u7b2c2\u968e\u6bb5\u9023\u7d50-\u5ee0\u5546'];
+        const s3 = !!c['\u7b2c3\u968e\u6bb5\u9023\u7d50'];
+        const s4e = !!c['\u7b2c4\u968e\u6bb5\u9023\u7d50-\u54e1\u5de5'];
+        const s4c = !!c['\u7b2c4\u968e\u6bb5\u9023\u7d50-\u627f\u652c\u5546'];
+        const isClosed = c['\u8fa6\u7406\u72c0態'] === '\u7b2c4\u968e\u6bb5-\u5df2\u7d50\u6848';
 
         return `
             <div class="progress-container">
                 <div class="progress-label">
                     <span>階段進度</span>
-                    <span>${isClosed ? '100%' : ((s4e && s4c) ? '80%' : (s4e || s4c ? '70%' : (s3 ? '50%' : (s2 ? '25%' : '0%'))))}</span>
+                    <span>\${isClosed ? '100%' : ((s4e && s4c) ? '80%' : (s4e || s4c ? '70%' : (s3 ? '50%' : (s2e || s2c ? '25%' : '0%'))))}</span>
                 </div>
                 <div class="progress-track">
-                    <div class="progress-step step-s1 active" title="S1: 已登錄"></div>
-                    <div class="progress-step step-s2 ${s2 || s3 || s4e || s4c ? 'active' : ''}" title="S2: 改善單"></div>
-                    <div class="progress-step step-s3 ${s3 || s4e || s4c ? 'active' : ''}" title="S3: 核章版"></div>
-                    <div class="progress-step step-s4 ${s4e || s4c || isClosed ? 'active' : ''}" title="S4: 結案 (員/承)"></div>
+                    <div class="progress-step step-s1 active" title="S1: \u5df2\u767b\u9304"></div>
+                    <div class="progress-step step-s2 \${s2e || s2c || s3 || s4e || s4c ? 'active' : ''}" title="S2: \u54e1/\u5ee0\u5de0\u5584\u55ae"></div>
+                    <div class="progress-step step-s3 \${s3 || s4e || s4c ? 'active' : ''}" title="S3: \u5ee0\u5546\u53ca\u54e1\u5de5"></div>
+                    <div class="progress-step step-s4 \${s4e || s4c || isClosed ? 'active' : ''}" title="S4: \u7d50\u6848 (\u54e1/\u5ee0)"></div>
                 </div>
             </div>
         `;
     },
 
     /** 取得案件的檔案狀態 HTML (包含圖示與下載連結) */
-    getFileStatusHtml: (c) => {
+            getFileStatusHtml: (c) => {
         const canAccess = app.state.user && (
             app.state.user.role === 'Admin' || 
             app.state.user.role === 'SafetyUploader' || 
-            (app.state.user.role === 'DepartmentUploader' && c['主辦部門'] === app.state.user.department)
+            (app.state.user.role === 'DepartmentUploader' && c['\u4e3b\u8fa6\u90e8\u9580'] === app.state.user.department)
         );
 
         const stages = [
-            { key: '第2階段連結', label: 'S2', class: 's2', icon: 'fa-file-signature' },
-            { key: '第3階段連結', label: 'S3', class: 's3', icon: 'fa-stamp' },
-            { key: '第4階段連結-員工', label: 'S4員工', class: 's4', icon: 'fa-user-check' },
-            { key: '第4階段連結-承攬商', label: 'S4承攬', class: 's4', icon: 'fa-building-circle-check' }
+            { key: '\u7b2c2\u968e\u6bb5\u9023\u7d50-\u54e1\u5de5', label: 'S2 \u54e1\u5de5', class: 's2', icon: 'fa-user' },
+            { key: '\u7b2c2\u968e\u6bb5\u9023\u7d50-\u5ee0\u5546', label: 'S2 \u5ee0\u5546', class: 's2', icon: 'fa-industry' },
+            { key: '\u7b2c3\u968e\u6bb5\u9023\u7d50', label: 'S3', class: 's3', icon: 'fa-stamp' },
+            { key: '\u7b2c4\u968e\u6bb5\u9023\u7d50-\u54e1\u5de5', label: 'S4 \u7d50(\u54e1\u5de5)', class: 's4', icon: 'fa-user-check' },
+            { key: '\u7b2c4\u968e\u6bb5\u9023\u7d50-\u627f\u652c\u5546', label: 'S4 \u7d50(\u5ee0\u5546)', class: 's4', icon: 'fa-building-circle-check' }
         ];
 
         return `
             <div class="file-status-icons">
-                ${stages.map(s => {
+                \${stages.map(s => {
                     const url = c[s.key];
                     if (url && canAccess) {
-                        return `<a href="${url}" target="_blank" class="file-icon uploaded ${s.class}" title="已上傳 ${s.label}"><i class="fas ${s.icon}"></i> ${s.label}</a>`;
+                        return \`<a href="\${url}" target="_blank" class="file-icon uploaded \${s.class}" title="\u5df2\u4e0a\u50b3 \${s.label}"><i class="fas \${s.icon}"></i> \${s.label}</a>\`;
                     } else if (url && !canAccess) {
-                        return `<div class="file-icon uploaded" title="已上傳，但您無權下載" style="color:var(--text-muted);"><i class="fas fa-lock"></i> ${s.label}</div>`;
+                        return \`<div class="file-icon uploaded" title="\u5df2\u4e0a\u50b3\uff0c\u4f46\u60a8\u7121\u6b0a\u4e0b\u8f09" style="color:var(--text-muted);"><i class="fas fa-lock"></i> \${s.label}</div>\`;
                     } else {
-                        return `<div class="file-icon missing" title="${s.label} 尚未上傳"><i class="fas ${s.icon}"></i> ${s.label}</div>`;
+                        return \`<div class="file-icon missing" title="\${s.label} \u5c1a\u672a\u4e0a\u50b3"><i class="fas \${s.icon}"></i> \${s.label}</div>\`;
                     }
                 }).join('')}
             </div>
@@ -647,12 +649,12 @@ const app = {
             const isAdmin = app.state.user && app.state.user.role === 'Admin';
             const projInfo = app.state.projects.find(p => p.abbr === c['工程簡稱']);
             const snLabel = projInfo ? `${projInfo.serial} - ` : '';
-            const hasFiles = !!(c['第2階段連結'] || c['第3階段連結'] || c['第4階段連結-員工'] || c['第4階段連結-承攬商']);
+            const hasFiles = !!(c['\u7b2c2\u968e\u6bb5\u9023\u7d50-\u54e1\u5de5'] || c['\u7b2c2\u968e\u6bb5\u9023\u7d50-\u5ee0\u5546'] || c['\u7b2c3\u968e\u6bb5\u9023\u7d50'] || c['\u7b2c4\u968e\u6bb5\u9023\u7d50-\u54e1\u5de5'] || c['\u7b2c4\u968e\u6bb5\u9023\u7d50-\u627f\u652c\u5546']);
             
             // 倒數計時區塊 (針對 DeptUploader 或 未登入訪客 且未結案)
             let countdownHtml = '';
             let isLargeDeptCard = false;
-            let s2Url = c['第2階段連結'];
+            let s2Url = c['\u7b2c2\u968e\u6bb5\u9023\u7d50-\u54e1\u5de5'] || c['\u7b2c2\u968e\u6bb5\u9023\u7d50-\u5ee0\u5546'] || c['\u7b2c2\u968e\u6bb5\u9023\u7d50']; // 相容舊版或優先顯示員工版
             const isGuest = !app.state.user;
             const isDept = app.state.user && app.state.user.role === 'DepartmentUploader';
 
@@ -754,7 +756,7 @@ const app = {
         cases.forEach(c => {
             const projInfo = app.state.projects.find(p => p.abbr === c['工程簡稱']);
             const snLabel = projInfo ? `${projInfo.serial} - ` : '';
-            const hasFiles = !!(c['第2階段連結'] || c['第3階段連結'] || c['第4階段連結-員工'] || c['第4階段連結-承攬商']);
+            const hasFiles = !!(c['\u7b2c2\u968e\u6bb5\u9023\u7d50-\u54e1\u5de5'] || c['\u7b2c2\u968e\u6bb5\u9023\u7d50-\u5ee0\u5546'] || c['\u7b2c3\u968e\u6bb5\u9023\u7d50'] || c['\u7b2c4\u968e\u6bb5\u9023\u7d50-\u54e1\u5de5'] || c['\u7b2c4\u968e\u6bb5\u9023\u7d50-\u627f\u652c\u5546']);
             const tr = document.createElement('tr');
             if (hasFiles) tr.classList.add('has-files');
             tr.innerHTML = `
@@ -1352,12 +1354,12 @@ const app = {
                         <div style="margin-bottom:15px; padding:12px; background:rgba(99,102,241,0.05); border-radius:12px; font-size:0.8rem; border:1px solid rgba(99,102,241,0.1);">
                             <i class="fas fa-info-circle"></i> 當前狀態：<b style="color:var(--primary);">${c['辦理狀態']}</b>
                         </div>
-                        <div class="manage-grid">
-                            ${app.getUploadSection(id, 'stage2e', 'S2 員工', 'var(--warning)', '員工改善單', !!c['第2階段連結-員工'])}
-                            ${app.getUploadSection(id, 'stage2c', 'S2 廠商', 'var(--warning)', '承攬商版本', !!c['第2階段連結-廠商'])}
-                            ${app.getUploadSection(id, 'stage3', 'S3 廠商', '#fbbf24', '更換核章版', !!c['第3階段連結'])}
-                            ${app.getUploadSection(id, 'stage4e', 'S4 結案(員工)', 'var(--success)', '更換員工版', !!c['第4階段連結-員工'])}
-                            ${app.getUploadSection(id, 'stage4c', 'S4 結案(承)', 'var(--success)', '更換承攬商版', !!c['第4階段連結-承攬商'])}
+                                                                        <div class="manage-grid">
+                            \${app.getUploadSection(id, 'stage2e', 'S2 \u54e1\u5de5', 'var(--danger)', '\u8acb\u5045\u4e0a傳「\u54e1\u5de5\u7248\u672c」\u4e4b\u0020S2\u0020\u6a14\u6848\u3002', !!c['\u7b2c2\u968e段\u9023\u7d50-\u54e1\u5de5'])}
+                            \${app.getUploadSection(id, 'stage2c', 'S2 \u5ee0\u5546', 'var(--danger)', '\u6ce8\u610f：\u8acb\u5045\u4e0a傳「\u627f攬\u5546\u7248\u672c」\u4e4b\u0020S2\u0020\u6a14\u6848\u3002', !!c['\u7b2c2\u968e段\u9023\u7d50-\u5ee0商'])}
+                            \${app.getUploadSection(id, 'stage3', 'S3 \u5ee0\u5546\u53ca\u54e1\u5de5', '#fbbf24', '\u53d7查部門核章版資料', !!c['\u7b2c3\u968e段\u9023\u7d50'])}
+                            \${app.getUploadSection(id, 'stage4e', 'S4 \u7d50(\u54e1\u5de5)', 'var(--success)', '\u627f辦人已完成結案報告', !!c['\u7b2c4\u968e段\u9023\u7d50-\u54e1\u5de5'])}
+                            \${app.getUploadSection(id, 'stage4c', 'S4 \u7d50(\u5ee0\u5546)', 'var(--success)', '\u5ee0\u5546完成改善結案', !!c['\u7b2c4\u968e段\u9023\u7d50-\u627f攬\u5546'])}
                         </div>
                         
                         ${(c['第2階段連結-員工'] || c['第2階段連結-廠商'] || c['第3階段連結'] || c['第4階段連結-員工'] || c['第4階段連結-承攬商']) ? `
@@ -1367,7 +1369,7 @@ const app = {
                                 ${c['第2階段連結-廠商'] ? `<a href="${c['第2階段連結-廠商']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-industry"></i> S2廠</a>` : ''}
                                 ${c['第3階段連結'] ? `<a href="${c['第3階段連結']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-stamp"></i> S3</a>` : ''}
                                 ${c['第4階段連結-員工'] ? `<a href="${c['第4階段連結-員工']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-user-check"></i> S4員</a>` : ''}
-                                ${c['第4階段連結-承攬商'] ? `<a href="${c['第4階段連結-承攬商']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-building-circle-check"></i> S4承</a>` : ''}
+                                ${c['第4階段連結-承攬商'] ? `<a href="${c['第4階段連結-承攬商']}" target="_blank" class="btn btn-outline" style="font-size:0.7rem; justify-content:center;"><i class="fas fa-building-circle-check"></i> S4廠</a>` : ''}
                             </div>
                         </div>` : ''}
                         
@@ -1809,30 +1811,80 @@ const app = {
     },
 
     initSystem: async () => {
-        // 第一層確認
-        if (!confirm("【警告】確定要初始化系統嗎？這將重置所有試算表分頁標題，可能影響現有資料布局。")) return;
-        
-        // 第二層確認
-        if (!confirm("【再次確認】此操作不可逆，且系統所有分頁（查核、缺失、帳號等）標題列將被強制更換為標準版本。您真的確定要執行嗎？")) return;
-        
-        // 第三層確認：字串輸入
-        const input = prompt("【最終確認】請輸入「RESET」並按下確定，以執行初始化系統：");
-        if (input !== "RESET") {
-            app.showToast("輸入錯誤，初始化已取消。", "error");
-            return;
-        }
-
         app.showLoading(true);
         try {
-            const res = await api.setupSystem();
-            if (res.success) {
-                app.showToast(res.message, "success");
-            } else {
-                app.showToast(res.message, "error");
+            const res = await api.getSystemMetadata();
+            const meta = res.data;
+            
+            app.openModal('系統初始化管理 (雙模式切換)', `
+                <div style="background:rgba(219,234,254,0.5); padding:16px; border-radius:12px; margin-bottom:20px; border:1px solid #bfdbfe;">
+                    <h4 style="margin:0 0 10px 0; color:var(--primary); font-size:1rem;"><i class="fas fa-info-circle"></i> 系統當前資訊</h4>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:0.85rem;">
+                        <div><b>基準年度：</b> <span style="color:var(--danger);">${meta.baselineYear}</span></div>
+                        <div><b>操作者：</b> ${app.state.user.email.split('@')[0]}</div>
+                        <div><b>備份狀態：</b> ${meta.lastBackup}</div>
+                        <div><b>影響範圍：</b> 案件 ${meta.caseCount} 筆 / 缺失 ${meta.deficiencyCount} 筆</div>
+                    </div>
+                </div>
+
+                <div class="init-mode-selector" style="display:flex; flex-direction:column; gap:12px;">
+                    <label style="border:2px solid var(--border); padding:16px; border-radius:12px; cursor:pointer; display:block; transition:0.2s;" id="labelModeA">
+                        <input type="radio" name="initMode" value="column_sync" checked style="margin-right:10px;" onchange="document.getElementById('resetWarning').classList.add('hidden')">
+                        <b style="font-size:1rem;">模式 A：欄位檢查 / 同步</b>
+                        <p style="margin:5px 0 0 25px; font-size:0.8rem; color:var(--text-muted);">僅檢查並補齊各分頁的標準標題列，<span style="color:var(--success);">不會影響現有案件資料。</span></p>
+                    </label>
+
+                    <label style="border:2px solid var(--border); padding:16px; border-radius:12px; cursor:pointer; display:block; transition:0.2s;" id="labelModeB">
+                        <input type="radio" name="initMode" value="reset" style="margin-right:10px;" onchange="document.getElementById('resetWarning').classList.remove('hidden')">
+                        <b style="font-size:1rem;">模式 B：資料匯出與全重置</b>
+                        <p style="margin:5px 0 0 25px; font-size:0.8rem; color:var(--text-muted);">執行【自動備份】後，<span style="color:var(--danger);">清空所有案件、缺失與歷程</span>，將系統過渡至新年度 (${meta.baselineYear})。</p>
+                    </label>
+                </div>
+
+                <div id="resetWarning" class="hidden" style="margin-top:15px; padding:12px; background:rgba(239,68,68,0.1); border-radius:8px; border:1px solid var(--danger); font-size:0.8rem; color:var(--danger);">
+                    <i class="fas fa-exclamation-triangle"></i> 模式 B 為破壞性操作。系統將先複製一份當前資料至「System_Backups」資料夾，隨後清空正式環境資料。
+                </div>
+
+                <button class="btn btn-primary" onclick="app.submitInitSystem()" style="width:100%; margin-top:20px; justify-content:center; height:50px; font-size:1.1rem;">
+                    <i class="fas fa-play-circle"></i> 執行作業
+                </button>
+            `);
+        } catch (e) {
+            app.showToast("無法獲取系統資訊: " + e.message, "error");
+        } finally {
+            app.showLoading(false);
+        }
+    },
+
+    submitInitSystem: async () => {
+        const mode = document.querySelector('input[name="initMode"]:checked').value;
+        const modeText = mode === 'reset' ? '【資料匯出與重置】' : '【欄位檢查/同步】';
+        
+        if (mode === 'reset') {
+            if (!confirm(`警告：您選擇了「${modeText}」。\n這將備份並清空所有資料！確定繼續？`)) return;
+            const input = prompt("請輸入「RESET」以確認執行全系統重置：");
+            if (input !== "RESET") return app.showToast("取消操作", "error");
+        } else {
+            if (!confirm(`確定執行「${modeText}」作業？這將掃描全部分頁標題並修補缺失欄位。`)) return;
+        }
+
+        app.setModalLoading(true);
+        try {
+            const res = await api.setupSystem(mode, "115年度");
+            app.showToast(res.message, "success");
+            app.closeModal();
+            // 如果是重置，刷新畫面
+            if (mode === 'reset') {
+                app.state.cases = [];
+                app.state.deficiencies = [];
+                app.renderView();
+                app.updateStats();
             }
         } catch (e) {
-            app.showToast("初始化失敗: " + e.message, "error");
-        } finally { app.showLoading(false); }
+            app.showToast("執行失敗: " + e.message, "error");
+        } finally {
+            app.setModalLoading(false);
+        }
     },
 
     deleteDeficiency: async (id) => {

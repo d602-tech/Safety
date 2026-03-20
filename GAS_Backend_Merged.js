@@ -154,7 +154,12 @@ function doPost(e) {
 
       case 'setup_system':
         if(roleData.role !== 'Admin') throw new Error("唯有管理員可進行系統初始化。");
-        result = setupSystem_();
+        result = setupSystem_(payload.mode, payload.year, roleData.email);
+        break;
+
+      case 'get_system_metadata':
+        if(roleData.role !== 'Admin') throw new Error("唯有管理員可調閱系統統計資訊。");
+        result = getSystemMetadata_(roleData);
         break;
 
       case 'test_send_email':
@@ -558,7 +563,7 @@ function uploadInspectionFile(fileInfo, caseId, stage, roleData) {
     switch(stage) {
         case 'stage2e': stageDisplay = 'S2 員工改善單'; break;
         case 'stage2c': stageDisplay = 'S2 廠商改善單'; break;
-        case 'stage3': stageDisplay = 'S3 廠商核章'; break;
+        case 'stage3': stageDisplay = 'S3 廠商及員工'; break;
         case 'stage4e': 
         case 'stage4': stageDisplay = 'S4 員工結案版'; break;
         case 'stage4c': stageDisplay = 'S4 承攬商結案版'; break;
@@ -675,8 +680,80 @@ function deleteCase_(caseId, reason, modifierName) {
  * 系統初始化：自動生成所有必要的分頁與標題列
  * 建議第一次使用或發現分頁遺失時執行一次
  */
-function setupSystem_() {
+/**
+ * 取得系統統計與備份資訊 (供管理員初始化確認視窗使用)
+ */
+function getSystemMetadata_(roleData) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const auditSheet = ss.getSheetByName(SHEET_AUDIT_LIST);
+    const defSheet = ss.getSheetByName(SHEET_DEFICIENCY_DB);
+    
+    const caseCount = auditSheet ? auditSheet.getLastRow() - 1 : 0;
+    const defCount = defSheet ? defSheet.getLastRow() - 1 : 0;
+    
+    // 取得最後備份時間 (搜尋 Drive 分頁中 Backup_ 開頭的資料夾內容)
+    let lastBackup = "無紀錄";
+    const rootFolder = DriveApp.getFolderById(MAIN_DRIVE_FOLDER_ID);
+    const backups = rootFolder.getFoldersByName("System_Backups");
+    if (backups.hasNext()) {
+      const backupFolder = backups.next();
+      const files = backupFolder.getFiles();
+      let latestTime = 0;
+      while (files.hasNext()) {
+        const f = files.next();
+        const t = f.getDateCreated().getTime();
+        if (t > latestTime) {
+          latestTime = t;
+          lastBackup = Utilities.formatDate(f.getDateCreated(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
+        }
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        baselineYear: "115年度",
+        operator: roleData.email,
+        caseCount: Math.max(0, caseCount),
+        deficiencyCount: Math.max(0, defCount),
+        lastBackup: lastBackup
+      }
+    };
+  } catch (e) {
+    return { success: false, message: "取得系統資訊失敗: " + e.message };
+  }
+}
+
+/**
+ * 系統初始化 (支援同步欄位與全系統重置模式)
+ */
+function setupSystem_(mode, year, operator) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  
+  if (mode === 'reset') {
+    // 執行資料重置模式
+    try {
+      // 1. 先執行備份
+      const backupResult = backupSystemData_(ss, operator);
+      if (!backupResult.success) throw new Error("備份失敗，中止重置: " + backupResult.message);
+      
+      // 2. 清除資料 (保留標題)
+      const sheetsToClear = [SHEET_AUDIT_LIST, SHEET_DEFICIENCY_DB, SHEET_CHANGE_LOG, SHEET_FILE_HISTORY];
+      sheetsToClear.forEach(name => {
+        const sheet = ss.getSheetByName(name);
+        if (sheet && sheet.getLastRow() > 1) {
+          sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent();
+        }
+      });
+      
+      return { success: true, message: "系統資料已成功備份並重置 (模式：資料清空)。" };
+    } catch (e) {
+      return { success: false, message: "資料重置失敗: " + e.message };
+    }
+  }
+
+  // 模式 A: 模式：欄位檢查 / 同步 (原邏輯)
   const sheetsToCreate = [
     { name: SHEET_AUDIT_LIST, headers: ['案件ID', '查核日期', '工程名稱', '工程簡稱', '承攬商', '主辦部門', '最晚應核章日期', '辦理狀態', '查核人員', '修改人員', '結案日期', '查核領隊', '查核成員', '承辦人姓名', '承辦人電子信箱', '承辦課長職稱', '承辦課長電子信箱', '第2階段連結-員工', '第2階段連結-廠商', '第3階段連結', '第4階段連結-員工', '第4階段連結-承攬商'], color: '#f3f4f6' },
     { name: SHEET_PROJECT_DB, headers: ['流水號', '工程簡稱', '工程名稱', '承攬商', '主辦部門', '承辦人姓名', '承辦人電子信箱', '承辦課長職稱', '承辦課長電子信箱'], color: '#f3f4f6' },
@@ -692,14 +769,42 @@ function setupSystem_() {
     if (!sheet) {
       sheet = ss.insertSheet(cfg.name);
     }
-    // 檢查標題列，若空白則寫入
+    // 檢查欄位是否完整
     if (sheet.getLastRow() === 0) {
       sheet.getRange(1, 1, 1, cfg.headers.length).setValues([cfg.headers]).setBackground(cfg.color).setFontWeight('bold');
       sheet.setFrozenRows(1);
+    } else {
+        // 更新標題列 (僅在欄位數不符時嘗試更新，或擴增)
+        const currentHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+        cfg.headers.forEach((h, idx) => {
+            if (currentHeaders.indexOf(h) === -1) {
+                const nextCol = sheet.getLastColumn() + 1;
+                sheet.getRange(1, nextCol).setValue(h).setBackground(cfg.color).setFontWeight('bold');
+            }
+        });
     }
   });
 
-  return { success: true, message: "系統分頁與標題列初始化完成。" };
+  return { success: true, message: "系統標題列與欄位同步檢視完成。" };
+}
+
+/**
+ * 內部備份邏輯：建立當前試算表的複本存入 System_Backups 資料夾
+ */
+function backupSystemData_(ss, operator) {
+  try {
+    const rootFolder = DriveApp.getFolderById(MAIN_DRIVE_FOLDER_ID);
+    let backupFolderIterator = rootFolder.getFoldersByName("System_Backups");
+    let backupFolder = backupFolderIterator.hasNext() ? backupFolderIterator.next() : rootFolder.createFolder("System_Backups");
+    
+    const timeStamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd_HHmm");
+    const backupName = "AutoBackup_" + timeStamp + "_" + operator.split('@')[0];
+    DriveApp.getFileById(SPREADSHEET_ID).makeCopy(backupName, backupFolder);
+    
+    return { success: true };
+  } catch (e) {
+    return { success: false, message: e.message };
+  }
 }
 
 function getOrCreateFileHistorySheet_() {
