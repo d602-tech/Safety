@@ -112,5 +112,9 @@ const api = {
     // 部門人員清單 (第 10 次優化新增)
     getDeptMembers: () => api.request('get_dept_members'),
     saveDeptMember: (data) => api.request('save_dept_member', data),
-    deleteDeptMember: (id) => api.request('delete_dept_member', { id })
+    deleteDeptMember: (id) => api.request('delete_dept_member', { id }),
+
+    // 個別案件稽催 (第 2 次優化新增)
+    previewCaseReminder: (caseId) => api.request('preview_case_reminder', { caseId }),
+    sendCaseReminder: (payload) => api.request('send_case_reminder', payload)
 };

@@ -742,6 +742,7 @@ const app = {
                         `}
                     </div>
                     <div class="card-footer" onclick="event.stopPropagation()">
+                        ${!isDept ? `<button class="btn btn-warning" onclick="app.previewReminder('${c.id}')" title="發送稽催信件"><i class="fas fa-envelope"></i></button>` : ''}
                         <button class="btn btn-primary" onclick="app.openManage('${c.id}')">管理</button>
                         <button class="btn btn-outline" onclick="app.viewHistory('${c.id}')"><i class="fas fa-history"></i></button>
                         ${isAdmin ? `<button class="btn btn-outline" style="color:var(--warning); border-color:var(--warning);" onclick="app.deleteCase('${c.id}')"><i class="fas fa-trash"></i></button>` : ''}
@@ -760,6 +761,7 @@ const app = {
         const tbody = document.getElementById('caseListBody');
         if (!tbody) return;
         const isAdmin = app.state.user && app.state.user.role === 'Admin';
+        const isDept = app.state.user && app.state.user.role === 'DepartmentUploader';
         tbody.innerHTML = cases.length ? '' : `<tr><td colspan="7" style="text-align:center; padding:40px;">☕ 尚無案件</td></tr>`;
         cases.forEach(c => {
             const projInfo = app.state.projects.find(p => p.abbr === c['工程簡稱']);
@@ -780,6 +782,7 @@ const app = {
                 <td><span class="badge ${app.getBadgeClass(c['辦理狀態'])}">${app.formatStatus(c['辦理狀態'])}</span></td>
                 <td>
                     <div style="display:flex; gap:5px;">
+                        ${!isDept ? `<button class="btn btn-warning" style="padding:8px 12px; border-color:var(--warning); color:var(--warning); background:transparent;" onclick="app.previewReminder('${c.id}')" title="發送稽催"><i class="fas fa-envelope"></i></button>` : ''}
                         <button class="btn btn-outline" onclick="app.openManage('${c.id}')">管理</button>
                         ${isAdmin ? `<button class="btn btn-outline" style="color:var(--warning); border-color:var(--warning); padding:8px 12px;" onclick="app.deleteCase('${c.id}')"><i class="fas fa-trash"></i></button>` : ''}
                     </div>
@@ -2102,6 +2105,92 @@ const app = {
 
         document.getElementById('reportResult').classList.remove('hidden');
     },
+
+    previewReminder: async (caseId) => {
+        app.showGlobalProgress('正在取得信件預覽...');
+        app.updateProgress(50);
+        try {
+            const res = await api.post({ action: 'previewCaseReminder', caseId });
+            app.updateProgress(100);
+            if (!res.success) throw new Error(res.message);
+
+            const { subject, htmlBody, recipients } = res.data || res;
+
+            document.getElementById('modalTitle').innerText = '📧 發送單獨案件稽催';
+            document.getElementById('modalBody').innerHTML = `
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label>收件人 (多個請用逗號分隔)</label>
+                    <input type="text" id="reminderRecipients" value="${recipients}" class="form-control" placeholder="請填寫收件人 Email">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label>信件主旨</label>
+                    <input type="text" id="reminderSubject" value="${subject}" class="form-control">
+                </div>
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label>信件內容預覽 <small style="color:var(--text-muted);">(唯讀)</small></label>
+                    <div style="border: 1px solid var(--border); border-radius: 8px; height: 350px; overflow: hidden; background: #fff;">
+                        <iframe id="reminderPreviewFrame" style="width:100%; height:100%; border:none;"></iframe>
+                    </div>
+                </div>
+                <div class="modal-actions" style="display:flex; justify-content:flex-end; gap:10px;">
+                    <button class="btn btn-outline" onclick="app.closeModal()">取消</button>
+                    <button class="btn btn-warning" onclick="app.sendReminderConfirm('${caseId}')"><i class="fas fa-paper-plane"></i> 確定發送</button>
+                </div>
+            `;
+            
+            document.getElementById('modalOverlay').classList.remove('hidden');
+            
+            // 將 HTML 寫入 iframe
+            const iframe = document.getElementById('reminderPreviewFrame');
+            const doc = iframe.contentWindow || iframe.contentDocument;
+            if (doc.document) {
+                doc.document.open();
+                doc.document.write(htmlBody);
+                doc.document.close();
+            }
+
+            // 存儲給後續發送用
+            app.state.currentReminderHtml = htmlBody;
+
+        } catch (e) {
+            app.showToast('無法預覽稽催信件: ' + e.message, 'error');
+        } finally {
+            app.hideGlobalProgress();
+        }
+    },
+
+    sendReminderConfirm: async (caseId) => {
+        const recipients = document.getElementById('reminderRecipients').value.trim();
+        const subject = document.getElementById('reminderSubject').value.trim();
+        if (!recipients) {
+            return app.showToast('請填寫收件人 Email', 'error');
+        }
+
+        const htmlBody = app.state.currentReminderHtml;
+        app.showGlobalProgress('正在發送稽催...');
+        app.updateProgress(50);
+        app.closeModal();
+        try {
+            const res = await api.post({
+                action: 'sendCaseReminder',
+                caseId,
+                recipients,
+                subject,
+                htmlBody
+            });
+            app.updateProgress(100);
+            if (res.success) {
+                app.showToast(res.message, 'success');
+            } else {
+                throw new Error(res.message);
+            }
+        } catch (e) {
+            app.showToast('發送失敗: ' + e.message, 'error');
+        } finally {
+            app.hideGlobalProgress();
+        }
+    },
+
     printReport: () => {
         const start = document.getElementById('reportStart').value;
         const end = document.getElementById('reportEnd').value;
@@ -2447,6 +2536,93 @@ const app = {
             app.showToast("已刪除", "success");
             app.renderDeptMembersView();
         } catch (e) { app.showToast(e.message, "error"); }
+    },
+
+    /** ======================== 個別案件稽催 (第2次優化) ======================== */
+
+    previewReminder: async (caseId) => {
+        const isClosed = app.state.cases.find(c => c.id === caseId)?.['辦理狀態'] === '第4階段-已結案';
+        if (isClosed) return app.showToast('案件已結案，無需稽催', 'error');
+
+        // 打開載入中 Modal
+        const overlay = document.getElementById('modalOverlay');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBody = document.getElementById('modalBody');
+        const modal = document.querySelector('.modal');
+        if (!overlay || !modalTitle || !modalBody) return;
+        modalTitle.innerText = '稽催信件預覽';
+        modalBody.innerHTML = `<div style="text-align:center;padding:60px;"><i class="fas fa-spinner fa-spin fa-2x"></i><br><br>正在產生信件預覽...</div>`;
+        if (modal) modal.classList.add('modal-lg');
+        overlay.classList.remove('hidden');
+
+        try {
+            const res = await api.previewCaseReminder(caseId);
+            const { subject, htmlBody, recipients, caseId: rCaseId } = res;
+
+            // 將 htmlBody escape 後塞入 srcdoc
+            const escapedHtml = htmlBody
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;');
+
+            modalBody.innerHTML = `
+                <div style="display:flex;flex-direction:column;gap:16px;">
+                    <div style="background:var(--bg-secondary,#f8fafc);border-radius:8px;padding:14px 18px;border:1px solid var(--border,#e2e8f0);">
+                        <div style="display:grid;grid-template-columns:80px 1fr;gap:8px;font-size:0.9rem;">
+                            <span style="color:var(--text-muted);font-weight:600;">收件人</span>
+                            <span id="reminderRecipients" style="word-break:break-all;color:var(--primary,#1e40af);"
+                                  contenteditable="true"
+                                  style="outline:1px solid var(--border,#e2e8f0);border-radius:4px;padding:2px 6px;">${recipients || '⚠️ 無收件人（請至案件編輯頁設定承辦人 Email）'}</span>
+                            <span style="color:var(--text-muted);font-weight:600;">主旨</span>
+                            <span style="font-weight:600;">${subject}</span>
+                        </div>
+                    </div>
+                    <div style="border:1px solid var(--border,#e2e8f0);border-radius:8px;overflow:hidden;">
+                        <div style="background:var(--bg-secondary,#f0f4ff);padding:8px 14px;font-size:0.75rem;color:var(--text-muted);border-bottom:1px solid var(--border,#e2e8f0);">信件預覽（HTML）</div>
+                        <iframe
+                            id="reminderPreviewFrame"
+                            srcdoc="${escapedHtml}"
+                            style="width:100%;height:480px;border:none;background:#fff;"
+                            sandbox="allow-same-origin"
+                        ></iframe>
+                    </div>
+                    <div style="display:flex;gap:10px;justify-content:flex-end;">
+                        <button class="btn btn-outline" onclick="app.closeModal()">取消</button>
+                        <button class="btn btn-primary"
+                            id="btnConfirmReminder"
+                            onclick="app.sendCaseReminderConfirm({
+                                recipients: document.getElementById('reminderRecipients').innerText,
+                                subject: ${JSON.stringify(subject)},
+                                htmlBody: document.getElementById('reminderPreviewFrame').srcdoc,
+                                caseId: ${JSON.stringify(rCaseId)}
+                            })">
+                            <i class="fas fa-paper-plane"></i> 確認寄出
+                        </button>
+                    </div>
+                </div>
+            `;
+        } catch (e) {
+            modalBody.innerHTML = `<div style="padding:40px;text-align:center;color:var(--danger,#dc2626);"><i class="fas fa-exclamation-circle fa-2x"></i><br><br>${e.message}</div>`;
+        }
+    },
+
+    sendCaseReminderConfirm: async (payload) => {
+        const btn = document.getElementById('btnConfirmReminder');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 寄送中...'; }
+
+        if (!payload.recipients || payload.recipients.trim() === '') {
+            app.showToast('收件人不得為空', 'error');
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> 確認寄出'; }
+            return;
+        }
+
+        try {
+            const res = await api.sendCaseReminder(payload);
+            app.showToast(res.message || '✅ 稽催信件已成功寄出！', 'success');
+            app.closeModal();
+        } catch (e) {
+            app.showToast('寄送失敗：' + e.message, 'error');
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> 確認寄出'; }
+        }
     },
 
 };

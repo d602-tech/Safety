@@ -27,7 +27,7 @@ const SHEET_DEPT_LIST = '部門清單';
 const _props = PropertiesService.getScriptProperties();
 const TEST_EMAIL = _props.getProperty('TEST_EMAIL') || 'clinlion418@gmail.com';
 // 系統前台連結（信件中「前往系統」按鈕）
-const SYSTEM_URL = _props.getProperty('SYSTEM_URL') || 'https://your-github-pages-url.github.io/';
+const SYSTEM_URL = _props.getProperty('SYSTEM_URL') || 'https://d602-tech.github.io/Safety/';
 
 const STATUS = {
   STAGE1: '第1階段-已登錄',
@@ -116,6 +116,20 @@ function doPost(e) {
         }
         const summary = getOverdueAuditSummary().data;
         result = sendManualReminders(summary);
+        break;
+
+      case 'preview_case_reminder':
+        if(roleData.role !== 'Admin' && roleData.role !== 'SafetyUploader') {
+            throw new Error("僅限管理員或工安人員可預覽稽催信件。");
+        }
+        result = previewCaseReminder_(payload.caseId);
+        break;
+
+      case 'send_case_reminder':
+        if(roleData.role !== 'Admin' && roleData.role !== 'SafetyUploader') {
+            throw new Error("僅限管理員或工安人員可發送稽催信件。");
+        }
+        result = sendCaseReminder_(payload);
         break;
 
       case 'get_users':
@@ -1581,7 +1595,7 @@ function _emailFooter_(systemUrl) {
 
 /** 共用案件資訊 Table */
 function _caseInfoTable_(audit) {
-  const s2Url = audit['第2階段連結'];
+  const s2Url = audit['S2員工查核檔案位置'] || audit['S2廠商查核檔案位置'] || audit['第2階段連結'];
   // 建立直接下載連結：將 /file/d/.../view 轉換為 /uc?export=download&id=...
   let s2DownloadLink = '';
   if (s2Url && s2Url.includes('/d/')) {
@@ -1635,7 +1649,7 @@ function buildStage1EmailHtml_(audit) {
 <!-- Body -->
 <tr><td style="padding:32px 36px;">
   <p style="font-size:15px;color:#334155;line-height:1.7;margin:0 0 16px;">
-    您好，<strong>${audit['承辦人姓名'] || '承辦人'}</strong> 您好，
+    <strong>${audit['承辦人員姓名'] || audit['承辦人姓名'] || '承辦人'}</strong> 您好，
   </p>
   <p style="font-size:15px;color:#334155;line-height:1.7;margin:0 0 20px;">
     系統已偵測到以下案件的<strong>「S2 原始改善單」已上傳</strong>，
@@ -1741,6 +1755,73 @@ function buildStage3EmailHtml_(audit, daysLeft) {
 </td></tr>
 ` + _emailFooter_();
 }
+
+/** 個別案件稽催預覽 */
+function previewCaseReminder_(caseId) {
+    const allAudits = getAuditRecords_();
+    const audit = allAudits.find(a => a.id === caseId);
+    if (!audit) throw new Error("找不到案件：" + caseId);
+    if (audit['辦理狀態'] === STATUS.STAGE4) throw new Error("案件已結案，無需稽催。");
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let daysLeft = null;
+    if (audit['最晚應核章日期']) {
+        const dueDate = new Date(audit['最晚應核章日期']);
+        dueDate.setHours(0, 0, 0, 0);
+        daysLeft = Math.round((dueDate - today) / 86400000);
+    }
+
+    const s2Uploaded = !!(audit['S2員工查核檔案位置'] || audit['S2廠商查核檔案位置']);
+    const s3Uploaded = !!audit['S3廠商及員工改善後核章檔案位置'];
+    if (s3Uploaded) throw new Error("S3 已上傳，無需稽催。");
+
+    let subject = '';
+    let htmlBody = '';
+
+    if (!s2Uploaded) {
+        subject = `【工安查核進度提醒】${audit['工程簡稱']} 尚未上傳 S2改善單`;
+        htmlBody = _emailHeader_('案件進度提醒', `${audit['主辦部門']} ｜ ${audit['工程簡稱']}`, '#ea580c') + `
+        <tr><td style="padding:32px 36px;">
+          <p style="font-size:15px;color:#334155;line-height:1.7;margin:0 0 20px;"><strong>${audit['承辦人姓名'] || '承辦人'}</strong> 您好，</p>
+          <p style="font-size:15px;color:#334155;line-height:1.7;margin:0 0 20px;">系統提醒您，此案件<strong>「S2 原始改善單」尚未上傳</strong>，請儘速補齊相關照片與文件。</p>
+          ${_caseInfoTable_(audit)}
+        </td></tr>` + _emailFooter_();
+    } else {
+        if (daysLeft !== null && daysLeft <= 1) {
+            subject = `【緊急】${audit['工程簡稱']} 核章截止日將至，請立即處理！`;
+            htmlBody = buildStage3EmailHtml_(audit, daysLeft);
+        } else {
+            const displayDays = daysLeft !== null ? daysLeft : '未設定';
+            subject = `【工安查核】${audit['工程簡稱']} 距核章截止剩 ${displayDays} 天，請速辦！`;
+            htmlBody = buildStage2EmailHtml_(audit, displayDays);
+        }
+    }
+
+    const contractorEmail = audit['承辦人Email'] || audit['承辦人電子信箱'] || '';
+    const managerEmail = audit['課長Email'] || audit['承辦課長電子信箱'] || '';
+    const defRecipients = [contractorEmail, managerEmail].filter(Boolean);
+
+    return { success: true, subject, htmlBody, recipients: defRecipients.join(', '), caseId };
+}
+
+/** 個別案件發送稽催 */
+function sendCaseReminder_(payload) {
+    try {
+        if (!payload.recipients) throw new Error("請填寫收件人");
+        const attachments = []; // 若需要也可抓取該案件的 Log 夾帶附件
+        
+        GmailApp.sendEmail(payload.recipients, payload.subject, '', {
+            htmlBody: payload.htmlBody,
+            attachments: attachments
+        });
+        
+        return { success: true, message: "稽催信件已順利寄出！" };
+    } catch (e) {
+        throw new Error("寄出失敗：" + e.message);
+    }
+}
+
 
 
 // ==================== 帳號管理 ====================
