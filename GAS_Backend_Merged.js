@@ -1258,9 +1258,16 @@ function getOverdueData_() {
     });
 
     Object.keys(auditsByDept).forEach(function(dept) {
+        let caseRecipients = [];
+        auditsByDept[dept].cases.forEach(function(c) {
+             if (c['承辦人Email']) caseRecipients.push(c['承辦人Email']);
+             if (c['承辦人電子信箱']) caseRecipients.push(c['承辦人電子信箱']);
+             if (c['課長Email']) caseRecipients.push(c['課長Email']);
+             if (c['承辦課長電子信箱']) caseRecipients.push(c['承辦課長電子信箱']);
+        });
         const deptRecipients = mailList[dept] || [];
         const safetyTeamRecipients = mailList['工安組'] || [];
-        auditsByDept[dept].recipients = [...new Set([...deptRecipients, ...safetyTeamRecipients])];
+        auditsByDept[dept].recipients = [...new Set([...deptRecipients, ...safetyTeamRecipients, ...caseRecipients])].filter(Boolean);
     });
 
     return auditsByDept;
@@ -1293,9 +1300,16 @@ function getReminderCases_() {
         auditsByDept[dept].cases.push(audit);
     });
     for (const dept in auditsByDept) {
+        let caseRecipients = [];
+        auditsByDept[dept].cases.forEach(function(c) {
+             if (c['承辦人Email']) caseRecipients.push(c['承辦人Email']);
+             if (c['承辦人電子信箱']) caseRecipients.push(c['承辦人電子信箱']);
+             if (c['課長Email']) caseRecipients.push(c['課長Email']);
+             if (c['承辦課長電子信箱']) caseRecipients.push(c['承辦課長電子信箱']);
+        });
         const recipients = mailList[dept] || [];
         const safetyTeamRecipients = mailList['工安組'] || [];
-        auditsByDept[dept].recipients = [...new Set([...recipients, ...safetyTeamRecipients])];
+        auditsByDept[dept].recipients = [...new Set([...recipients, ...safetyTeamRecipients, ...caseRecipients])].filter(Boolean);
     }
     return auditsByDept;
 }
@@ -1415,8 +1429,8 @@ function runDailyReminderJob_() {
       const s2Uploaded = (status === STATUS.STAGE2 || status === STATUS.STAGE3);
       const s3NotUploaded = (status === STATUS.STAGE2 || status === STATUS.STAGE1);
 
-      const contractorEmail = audit['承辦人電子信箱'];
-      const managerEmail = audit['承辦課長電子信箱'];
+      const contractorEmail = audit['承辦人Email'] || audit['承辦人電子信箱'];
+      const managerEmail = audit['課長Email'] || audit['承辦課長電子信箱'];
 
       // ─ Stage 1：S2 已上傳，立即通知（只送一次，用 Change Log 防重複）
       if (status === STATUS.STAGE2 && !hasNotificationSent_(audit.id, 'NOTIFY_S2')) {

@@ -547,6 +547,21 @@ const app = {
     },
 
     getFilteredCases: () => {
+        // 動態修正辦理狀態防呆 (若資料端異常標示為第3/4階段但未上傳對應檔案)
+        app.state.cases.forEach(c => {
+            const s3File = !!(c['S3廠商及員工改善後核章檔案位置']);
+            const s4File = !!(c['S4結案檔案位置']);
+            let statusStr = c['辦理狀態'] || '';
+            if (statusStr.includes('4') && !s4File) {
+                statusStr = s3File ? '第3階段-工作隊版已處理' : '第2階段-改善單已上傳';
+            }
+            if (statusStr.includes('3') && !s3File) {
+                const s2File = !!(c['S2員工查核檔案位置'] || c['S2廠商查核檔案位置']);
+                statusStr = s2File ? '第2階段-改善單已上傳' : '第1階段-已登錄';
+            }
+            c['辦理狀態'] = statusStr;
+        });
+
         const yearFilter = document.getElementById('filterYear')?.value || '';
         const deptFilter = document.getElementById('filterDepartment')?.value || '';
         const statusFilter = document.getElementById('filterStatus')?.value || '';
