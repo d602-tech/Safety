@@ -622,6 +622,38 @@ function uploadInspectionFile(fileInfo, caseId, stage, roleData) {
     }
     logChange_(caseId, auditData['工程簡稱'], userEmail, '檔案上傳', stageDisplay, newFileName, fileUrl);
     
+    // 【即時通知】S2 上傳完成後立即寄送通知信給承辦人（不等每日排程）
+    if ((stage === 'stage2e' || stage === 'stage2c') && !hasNotificationSent_(caseId, 'NOTIFY_S2')) {
+      try {
+        const contractorEmail = auditData['承辦人Email'] || auditData['承辦人電子信箱'];
+        if (contractorEmail) {
+          // 重新組 audit 物件供 email template 使用
+          const auditForEmail = {};
+          headers.forEach(function(h, i) { auditForEmail[h] = auditData[h]; });
+          auditForEmail.id = caseId;
+          // 格式化日期
+          ['查核日期', '最晚應核章日期'].forEach(function(key) {
+            if (auditForEmail[key] instanceof Date) {
+              auditForEmail[key] = Utilities.formatDate(auditForEmail[key], Session.getScriptTimeZone(), 'yyyy-MM-dd');
+            }
+          });
+
+          GmailApp.sendEmail(
+            contractorEmail,
+            `第1階段，查核報告電子檔已上傳可先行轉知廠商修改，詳如說明，請查照`,
+            '',
+            { htmlBody: buildStage1EmailHtml_(auditForEmail) }
+          );
+          markNotificationSent_(caseId, auditData['工程簡稱'], 'NOTIFY_S2');
+          console.log(`📨 [S2上傳即時通知] ${auditData['工程簡稱']} → ${contractorEmail}`);
+        } else {
+          console.log(`⚠️ [S2上傳] ${auditData['工程簡稱']} - 承辦人Email為空，跳過即時通知`);
+        }
+      } catch (mailErr) {
+        console.error(`❌ [S2即時通知失敗] ${auditData['工程簡稱']}: ${mailErr.message}`);
+      }
+    }
+
     return { success: true, message: '檔案 "' + newFileName + '" 上傳成功！', records: getAuditRecords_() };
   } catch (e) {
     throw new Error("檔案上傳失敗: " + e.message);
@@ -1417,25 +1449,42 @@ function sendTestEmail() { sendTestEmail_(); }
 
 /**
  * 主控函數：每日定時觸發器呼叫此函數
- * 三階段邏輯:
- *   Stage1: S2 已上傳 且 尚未發送過 Stage1 通知 → 寄承辦人
- *   Stage2: S3 尚未上傳 且 距到期恰好 3 天 → 寄承辦人
- *   Stage3: S3 尚未上傳 且 距到期恰好 1 天 → 寄承辦人 + 課長
+ * 通知邏輯:
+ *   Stage1: S2 已上傳 且 尚未發送過 Stage1 通知 → 寄承辦人（只寄一次）
+ *   Stage2: S3 尚未上傳 且 距到期 3~2 天 → 每日寄承辦人
+ *   Stage3: S3 尚未上傳 且 距到期 1~0 天 → 每日寄承辦人 + 課長
+ *   逾期:  S3 尚未上傳 且 已超過截止日 → 每日寄承辦人 + 課長
  */
 function runDailyReminderJob_() {
   const allAudits = getAuditRecords_();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const todayStr = Utilities.formatDate(today, Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
 
-  const results = { stage1: 0, stage2: 0, stage3: 0, errors: [] };
+  console.log('══════════════════════════════════════════════');
+  console.log(`🔔 [稽催排程啟動] 執行時間: ${todayStr}`);
+  console.log(`📊 全部案件數: ${allAudits.length}`);
+  console.log('══════════════════════════════════════════════');
+
+  const results = { stage1: 0, stage2: 0, stage3: 0, overdue: 0, skipped: 0, errors: [] };
+  const sentLog = []; // 記錄所有發送的信件摘要
 
   allAudits.forEach(function(audit) {
     try {
       const status = audit['辦理狀態'];
-      if (status === STATUS.STAGE4) return; // 已結案略過
+      const abbr = audit['工程簡稱'] || '未知工程';
+
+      if (status === STATUS.STAGE4) {
+        results.skipped++;
+        return; // 已結案略過
+      }
 
       const dueDateStr = audit['最晚應核章日期'];
-      if (!dueDateStr) return;
+      if (!dueDateStr) {
+        console.log(`⏭️ [略過] ${abbr} (ID:${audit.id}) - 無設定最晚應核章日期`);
+        results.skipped++;
+        return;
+      }
       const dueDate = new Date(dueDateStr);
       dueDate.setHours(0, 0, 0, 0);
       const daysLeft = Math.round((dueDate - today) / 86400000);
@@ -1445,6 +1494,8 @@ function runDailyReminderJob_() {
 
       const contractorEmail = audit['承辦人Email'] || audit['承辦人電子信箱'];
       const managerEmail = audit['課長Email'] || audit['承辦課長電子信箱'];
+
+      console.log(`── 檢查案件: ${abbr} | 狀態: ${status} | 到期日: ${dueDateStr} | 剩餘天數: ${daysLeft} | 承辦人: ${contractorEmail || '(空)'} | 課長: ${managerEmail || '(空)'}`);
 
       // ─ Stage 1：S2 已上傳，立即通知（只送一次，用 Change Log 防重複）
       if (status === STATUS.STAGE2 && !hasNotificationSent_(audit.id, 'NOTIFY_S2')) {
@@ -1457,43 +1508,103 @@ function runDailyReminderJob_() {
           );
           markNotificationSent_(audit.id, audit['工程簡稱'], 'NOTIFY_S2');
           results.stage1++;
+          const logEntry = `📨 [Stage1-S2上傳通知] ${abbr} → ${contractorEmail}`;
+          sentLog.push(logEntry);
+          console.log(logEntry);
+        } else {
+          console.log(`⚠️ [Stage1] ${abbr} - S2已上傳但承辦人Email為空，無法寄送`);
         }
       }
 
-      // ─ Stage 2：S3 尚未上傳，距到期 3 天
-      if (s3NotUploaded && daysLeft === 3) {
+      // ─ Stage 2：S3 尚未上傳，距到期 3~2 天 → 每日寄承辦人
+      if (s3NotUploaded && (daysLeft === 3 || daysLeft === 2)) {
         if (contractorEmail) {
           GmailApp.sendEmail(
             contractorEmail,
-            `【工安查核】${audit['工程簡稱']} 距核章截止剩 3 天，請速辦！`,
+            `【工安查核】${audit['工程簡稱']} 距核章截止剩 ${daysLeft} 天，請速辦！`,
             '',
-            { htmlBody: buildStage2EmailHtml_(audit, 3) }
+            { htmlBody: buildStage2EmailHtml_(audit, daysLeft) }
           );
           results.stage2++;
+          const logEntry = `📨 [Stage2-倒數${daysLeft}天] ${abbr} → ${contractorEmail}`;
+          sentLog.push(logEntry);
+          console.log(logEntry);
+        } else {
+          console.log(`⚠️ [Stage2] ${abbr} - 距到期${daysLeft}天但承辦人Email為空，無法寄送`);
         }
       }
 
-      // ─ Stage 3：S3 尚未上傳，距到期 1 天 → 承辦人 + 課長
-      if (s3NotUploaded && daysLeft === 1) {
+      // ─ Stage 3：S3 尚未上傳，距到期 1~0 天 → 每日寄承辦人 + 課長
+      if (s3NotUploaded && (daysLeft === 1 || daysLeft === 0)) {
+        const recipients = [contractorEmail, managerEmail].filter(Boolean);
+        if (recipients.length > 0) {
+          const subjectText = daysLeft === 0
+            ? `【到期提醒】${audit['工程簡稱']} 今日為核章截止日，請立即處理！`
+            : `【緊急】${audit['工程簡稱']} 明日即為核章截止日，請立即處理！`;
+          GmailApp.sendEmail(
+            recipients.join(','),
+            subjectText,
+            '',
+            { htmlBody: buildStage3EmailHtml_(audit, daysLeft) }
+          );
+          results.stage3++;
+          const logEntry = `📨 [Stage3-倒數${daysLeft}天] ${abbr} → ${recipients.join(', ')}`;
+          sentLog.push(logEntry);
+          console.log(logEntry);
+        } else {
+          console.log(`⚠️ [Stage3] ${abbr} - 距到期${daysLeft}天但收件人皆為空，無法寄送`);
+        }
+      }
+
+      // ─ 逾期：S3 尚未上傳，已超過截止日 → 每日通知承辦人 + 課長
+      if (s3NotUploaded && daysLeft < 0) {
+        const daysOverdue = Math.abs(daysLeft);
         const recipients = [contractorEmail, managerEmail].filter(Boolean);
         if (recipients.length > 0) {
           GmailApp.sendEmail(
             recipients.join(','),
-            `【緊急】${audit['工程簡稱']} 明日即為核章截止日，請立即處理！`,
+            `【逾期警告】${audit['工程簡稱']} 已逾期 ${daysOverdue} 天，請立即處理！`,
             '',
-            { htmlBody: buildStage3EmailHtml_(audit, 1) }
+            { htmlBody: buildOverdueEmailHtml_(audit, daysOverdue) }
           );
-          results.stage3++;
+          results.overdue++;
+          const logEntry = `📨 [逾期第${daysOverdue}天] ${abbr} → ${recipients.join(', ')}`;
+          sentLog.push(logEntry);
+          console.log(logEntry);
+        } else {
+          console.log(`⚠️ [逾期] ${abbr} - 已逾期${daysOverdue}天但收件人皆為空，無法寄送`);
         }
       }
     } catch (err) {
-      results.errors.push(`${audit.id}: ${err.message}`);
+      const errMsg = `${audit.id} (${audit['工程簡稱'] || '?'}): ${err.message}`;
+      results.errors.push(errMsg);
+      console.error(`❌ [發送失敗] ${errMsg}`);
     }
   });
 
+  // 彙整報告
+  console.log('══════════════════════════════════════════════');
+  console.log(`✅ [稽催排程完成] ${todayStr}`);
+  console.log(`   Stage1(S2上傳通知): ${results.stage1} 封`);
+  console.log(`   Stage2(倒數3~2天):  ${results.stage2} 封`);
+  console.log(`   Stage3(倒數1~0天):  ${results.stage3} 封`);
+  console.log(`   逾期通知:           ${results.overdue} 封`);
+  console.log(`   略過(已結案/無資料): ${results.skipped} 筆`);
+  console.log(`   發送失敗:           ${results.errors.length} 筆`);
+  if (sentLog.length > 0) {
+    console.log('── 本次發送明細 ──');
+    sentLog.forEach(function(l) { console.log('   ' + l); });
+  }
+  if (results.errors.length > 0) {
+    console.log('── 錯誤清單 ──');
+    results.errors.forEach(function(e) { console.log('   ❌ ' + e); });
+  }
+  console.log('══════════════════════════════════════════════');
+
   return {
     success: true,
-    message: `稽催完成：Stage1×${results.stage1} Stage2×${results.stage2} Stage3×${results.stage3}`,
+    message: `稽催完成：Stage1×${results.stage1} Stage2×${results.stage2} Stage3×${results.stage3} 逾期×${results.overdue}`,
+    data: { sentLog: sentLog },
     errors: results.errors
   };
 }
@@ -1638,11 +1749,11 @@ function _caseInfoTable_(audit) {
 }
 
 /**
- * Stage 1 HTML 模板：S2 已上傳，通知承辦人可先行線上修改
+ * Stage 1 HTML 模板：S2 已上傳，通知承辦人可先行下載轉知承攬商改善
  */
 function buildStage1EmailHtml_(audit) {
   return _emailHeader_(
-    '改善單已上傳，可先行線上修改',
+    '改善單已上傳，可先行下載轉知承攬商改善',
     `${audit['主辦部門']} ｜ ${audit['工程簡稱']}`,
     '#0f766e'
   ) + `
@@ -1652,9 +1763,9 @@ function buildStage1EmailHtml_(audit) {
     <strong>${audit['承辦人員姓名'] || audit['承辦人姓名'] || '承辦人'}</strong> 您好，
   </p>
   <p style="font-size:15px;color:#334155;line-height:1.7;margin:0 0 20px;">
-    系統已偵測到以下案件的<strong>「S2 原始改善單」已上傳</strong>，
-    承辦人員可<strong style="color:#0f766e;">先行轉知廠商修改</strong>相關內容，
-    紙本文件可於後續補送。
+    <strong>「原始改善單」已上傳</strong>，
+    承辦人員可<strong style="color:#0f766e;">先行轉知廠商改善</strong>，
+    書面文件待核定後傳遞。
   </p>
 
   ${_caseInfoTable_(audit)}
@@ -1749,6 +1860,49 @@ function buildStage3EmailHtml_(audit, daysLeft) {
         🔴 <strong>第一點：</strong>請<strong>立即</strong>上傳 S3 工作隊核章版至系統。<br>
         🔴 <strong>第二點：</strong>請特別確認<strong>第一個章的核章日期</strong>必須在
         <strong>${dueDate}</strong> 當日或之前，核章日期不符將視為無效。
+      </p>
+    </td></tr>
+  </table>
+</td></tr>
+` + _emailFooter_();
+}
+
+/**
+ * 逾期通知 HTML 模板：S3 尚未上傳，已超過截止日，每日通知承辦人 + 課長
+ */
+function buildOverdueEmailHtml_(audit, daysOverdue) {
+  const dueDate = audit['最晚應核章日期'];
+  return _emailHeader_(
+    `【逾期警告】已逾期 ${daysOverdue} 天！`,
+    `${audit['主辦部門']} ｜ ${audit['工程簡稱']}`,
+    '#4c1d95'
+  ) + `
+<!-- Body -->
+<tr><td style="padding:32px 36px;">
+
+  <!-- 逾期天數大圖示 -->
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+    <tr><td align="center" style="background:#f5f3ff;border:2px solid #7c3aed;border-radius:10px;padding:20px;">
+      <div style="font-size:14px;color:#4c1d95;font-weight:600;letter-spacing:1px;">⛔ 已逾期</div>
+      <div style="font-size:64px;font-weight:900;color:#6d28d9;line-height:1;margin:8px 0;">${daysOverdue}</div>
+      <div style="font-size:16px;color:#4c1d95;font-weight:700;">天</div>
+      <div style="font-size:12px;color:#7c3aed;margin-top:6px;">截止日：${dueDate}</div>
+    </td></tr>
+  </table>
+
+  <p style="font-size:15px;color:#334155;line-height:1.7;margin:0 0 20px;">
+    以下案件的<strong>「S3 工作隊核章版」仍未上傳</strong>，已超過截止日期 <strong style="color:#6d28d9;">${daysOverdue} 天</strong>，
+    現通知<strong>承辦人員及課長</strong>，請立即確認並儘速補件。
+  </p>
+
+  ${_caseInfoTable_(audit)}
+
+  <!-- 紫色警示框 -->
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
+    <tr><td style="background:#f5f3ff;border-left:4px solid #7c3aed;border-radius:0 8px 8px 0;padding:14px 18px;">
+      <p style="margin:0;font-size:14px;color:#4c1d95;line-height:1.8;">
+        ⛔ <strong>第一點：</strong>請<strong>立即</strong>上傳 S3 工作隊核章版至系統。<br>
+        ⛔ <strong>第二點：</strong>核章日期若早於截止日 <strong>${dueDate}</strong> 仍可受理，請確認後盡快上傳。
       </p>
     </td></tr>
   </table>

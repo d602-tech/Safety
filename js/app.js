@@ -295,6 +295,8 @@ const app = {
         if (user.role === 'Admin' || user.role === 'SafetyUploader') {
             if (btnNew) btnNew.classList.remove('hidden');
             if (pathRef) pathRef.style.display = 'block';
+            const reminderGuide = document.getElementById('reminderGuideSection');
+            if (reminderGuide) reminderGuide.style.display = 'block';
         }
         if (user.role === 'Admin') {
             if (btnRemind) btnRemind.classList.remove('hidden');

@@ -105,6 +105,60 @@
                     <div class="flow-footer"><i class="fas fa-check-double"></i> 完成結案</div>
                 </div>
             </div>
+
+            <!-- 自動稽催通知機制說明 -->
+            <div id="reminderGuideSection" style="margin-top: 20px; display: none;">
+                <h4 style="margin:0 0 12px 0; font-size: 0.95rem; color:var(--warning);">
+                    <i class="fas fa-bell"></i> 自動稽催通知機制
+                    <small style="font-weight:400; color:var(--text-muted); margin-left:8px;">每日上午 8:00 自動執行</small>
+                </h4>
+                <div style="overflow-x:auto;">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.82rem; background:var(--bg-card); border-radius:8px; overflow:hidden;">
+                        <thead>
+                            <tr style="background:var(--bg-input); font-weight:600;">
+                                <th style="padding:10px 12px; text-align:left; border-bottom:2px solid var(--border);">觸發時機</th>
+                                <th style="padding:10px 12px; text-align:left; border-bottom:2px solid var(--border);">觸發條件</th>
+                                <th style="padding:10px 12px; text-align:left; border-bottom:2px solid var(--border);">收件人</th>
+                                <th style="padding:10px 12px; text-align:left; border-bottom:2px solid var(--border);">頻率</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="border-bottom:1px solid var(--border);">
+                                <td style="padding:8px 12px;"><span style="background:#3b82f6; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.75rem;">S2上傳</span></td>
+                                <td style="padding:8px 12px;">S2 改善單已上傳（狀態進入第2階段）</td>
+                                <td style="padding:8px 12px;">承辦人</td>
+                                <td style="padding:8px 12px; font-weight:600; color:var(--primary);">僅一次</td>
+                            </tr>
+                            <tr style="border-bottom:1px solid var(--border);">
+                                <td style="padding:8px 12px;"><span style="background:#f59e0b; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.75rem;">倒數3~2天</span></td>
+                                <td style="padding:8px 12px;">S3 尚未上傳，距核章截止日剩 3~2 天</td>
+                                <td style="padding:8px 12px;">承辦人</td>
+                                <td style="padding:8px 12px; font-weight:600; color:var(--warning);">每日寄送</td>
+                            </tr>
+                            <tr style="border-bottom:1px solid var(--border);">
+                                <td style="padding:8px 12px;"><span style="background:#ef4444; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.75rem;">倒數1~0天</span></td>
+                                <td style="padding:8px 12px;">S3 尚未上傳，距核章截止日剩 1 天或當天到期</td>
+                                <td style="padding:8px 12px; font-weight:600;">承辦人 + 課長</td>
+                                <td style="padding:8px 12px; font-weight:600; color:var(--danger);">每日寄送</td>
+                            </tr>
+                            <tr>
+                                <td style="padding:8px 12px;"><span style="background:#dc2626; color:#fff; padding:2px 8px; border-radius:4px; font-size:0.75rem; animation: pulse 1.5s infinite;">已逾期</span></td>
+                                <td style="padding:8px 12px;">S3 尚未上傳，已超過核章截止日</td>
+                                <td style="padding:8px 12px; font-weight:600;">承辦人 + 課長</td>
+                                <td style="padding:8px 12px; font-weight:600; color:var(--danger);">每日寄送</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div style="margin-top:10px; font-size:0.78rem; color:var(--text-muted); line-height:1.6;">
+                    <i class="fas fa-info-circle" style="color:var(--primary);"></i>
+                    收件人信箱取自案件的「承辦人Email」與「課長Email」欄位，請確保已正確填寫。<br>
+                    <i class="fas fa-info-circle" style="color:var(--primary);"></i>
+                    管理員可透過「執行稽催」按鈕手動觸發，或設定「建立排程」讓系統每日自動執行。<br>
+                    <i class="fas fa-info-circle" style="color:var(--primary);"></i>
+                    執行紀錄可於 GAS 編輯器 →「執行項目」中查看詳細的 Cloud Log。
+                </div>
+            </div>
         </section>
 
         <!-- 2.5 經辦人員專用統計區 (隱藏預設，僅角色符合時顯示) -->
