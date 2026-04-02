@@ -22,6 +22,7 @@ const SHEET_USER_PERMISSIONS = '使用者權限';
 const SHEET_FILE_HISTORY = '檔案歷程';
 const SHEET_DEPT_ACCOUNTS = '帳號管理';
 const SHEET_DEPT_LIST = '部門清單';
+const SHEET_UPLOAD_TOKENS = '上傳Token';
 
 // ── 測試模式設定（優先讀 Script Properties，讀不到則用下方預設值）──
 const _props = PropertiesService.getScriptProperties();
@@ -57,10 +58,25 @@ function doPost(e) {
     const request = JSON.parse(e.postData.contents);
     const action = request.action;
     const payload = request.payload || {};
-
+    if (action === 'get_upload_link') {
+        const audit = getAuditRecords_().find(function(a) { return a.id == payload.caseId; });
+        if (!audit) throw new Error("找不到案件");
+        const contractorEmail = audit['承辦人Email'] || audit['承辦人電子信箱'];
+        const dueDate = audit['最晚應核章日期'];
+        if (!contractorEmail || !dueDate) throw new Error("案件資料不全 (需有承辦人Email與截止日)");
+        const token = generateUploadToken_(payload.caseId, contractorEmail, dueDate);
+        return createJsonResponse({ success: true, url: getUploadPageUrl_(token) });
+    }
+    
     // 【公開 API】允許未登入存取特定功能
     if (action === 'get_public_cases') {
         return createJsonResponse(getPublicCases_());
+    }
+    if (action === 'verify_upload_token') {
+        return createJsonResponse(verifyUploadToken_(payload.token));
+    }
+    if (action === 'token_upload_file') {
+        return createJsonResponse(tokenUploadFile_(payload));
     }
     
     // 【防護網一：驗證前端傳來的 Token】
@@ -637,12 +653,21 @@ function uploadInspectionFile(fileInfo, caseId, stage, roleData) {
               auditForEmail[key] = Utilities.formatDate(auditForEmail[key], Session.getScriptTimeZone(), 'yyyy-MM-dd');
             }
           });
+          // 產生安全上傳連結
+          let s2UploadUrl = '';
+          const dueDate = auditForEmail['最晚應核章日期'];
+          if (dueDate) {
+            try {
+              const token = generateUploadToken_(caseId, contractorEmail, dueDate);
+              s2UploadUrl = getUploadPageUrl_(token);
+            } catch (te) { console.error('[Token] S2即時通知Token產生失敗:', te.message); }
+          }
 
           GmailApp.sendEmail(
             contractorEmail,
             `第1階段，查核報告電子檔已上傳可先行轉知廠商修改，詳如說明，請查照`,
             '',
-            { htmlBody: buildStage1EmailHtml_(auditForEmail) }
+            { htmlBody: buildStage1EmailHtml_(auditForEmail, s2UploadUrl) }
           );
           markNotificationSent_(caseId, auditData['工程簡稱'], 'NOTIFY_S2');
           console.log(`📨 [S2上傳即時通知] ${auditData['工程簡稱']} → ${contractorEmail}`);
@@ -845,7 +870,8 @@ function setupSystem_(mode, year, operator) {
     { name: SHEET_FILE_HISTORY, headers: ['異動日期', '異動人員', '案件ID', '異動內容', '檔案類型', '檔案連結', '狀態'], color: '#d1fae5' },
     { name: SHEET_USER_PERMISSIONS, headers: ['信箱 (Email)', '姓名 (Name)', '角色 (Role)', '所屬部門 (Department)', '啟用狀態 (Active)'], color: '#f3f4f6' },
     { name: SHEET_DEPT_ACCOUNTS, headers: ['部門名稱', '承辦人姓名', '承辦人Email', '課長姓名', '課長Email', '備註', '建立日期'], color: '#e0f2fe' },
-    { name: SHEET_DEPT_LIST, headers: ['ID', '主辦部門', '職稱', '姓名', '信箱'], color: '#fdf2f8' }
+    { name: SHEET_DEPT_LIST, headers: ['ID', '主辦部門', '職稱', '姓名', '信箱'], color: '#fdf2f8' },
+    { name: SHEET_UPLOAD_TOKENS, headers: ['Token', '案件ID', '授權Email', '建立時間', '到期時間', '狀態'], color: '#e0e7ff' }
   ];
 
   sheetsToCreate.forEach(cfg => {
@@ -1497,6 +1523,17 @@ function runDailyReminderJob_() {
 
       console.log(`── 檢查案件: ${abbr} | 狀態: ${status} | 到期日: ${dueDateStr} | 剩餘天數: ${daysLeft} | 承辦人: ${contractorEmail || '(空)'} | 課長: ${managerEmail || '(空)'}`);
 
+      // 產生安全上傳連結（S3 未上傳且有承辦人 Email 時）
+      let uploadUrl = '';
+      if (s3NotUploaded && contractorEmail && dueDateStr) {
+        try {
+          const token = generateUploadToken_(audit.id, contractorEmail, dueDateStr);
+          uploadUrl = getUploadPageUrl_(token);
+        } catch (tokenErr) {
+          console.error(`⚠️ [Token產生失敗] ${abbr}: ${tokenErr.message}`);
+        }
+      }
+
       // ─ Stage 1：S2 已上傳，立即通知（只送一次，用 Change Log 防重複）
       if (status === STATUS.STAGE2 && !hasNotificationSent_(audit.id, 'NOTIFY_S2')) {
         if (contractorEmail) {
@@ -1504,7 +1541,7 @@ function runDailyReminderJob_() {
             contractorEmail,
             `第1階段，查核報告電子檔已上傳可先行轉知廠商修改，詳如說明，請查照`,
             '',
-            { htmlBody: buildStage1EmailHtml_(audit) }
+            { htmlBody: buildStage1EmailHtml_(audit, uploadUrl) }
           );
           markNotificationSent_(audit.id, audit['工程簡稱'], 'NOTIFY_S2');
           results.stage1++;
@@ -1523,7 +1560,7 @@ function runDailyReminderJob_() {
             contractorEmail,
             `【工安查核】${audit['工程簡稱']} 距核章截止剩 ${daysLeft} 天，請速辦！`,
             '',
-            { htmlBody: buildStage2EmailHtml_(audit, daysLeft) }
+            { htmlBody: buildStage2EmailHtml_(audit, daysLeft, uploadUrl) }
           );
           results.stage2++;
           const logEntry = `📨 [Stage2-倒數${daysLeft}天] ${abbr} → ${contractorEmail}`;
@@ -1545,7 +1582,7 @@ function runDailyReminderJob_() {
             recipients.join(','),
             subjectText,
             '',
-            { htmlBody: buildStage3EmailHtml_(audit, daysLeft) }
+            { htmlBody: buildStage3EmailHtml_(audit, daysLeft, uploadUrl) }
           );
           results.stage3++;
           const logEntry = `📨 [Stage3-倒數${daysLeft}天] ${abbr} → ${recipients.join(', ')}`;
@@ -1565,7 +1602,7 @@ function runDailyReminderJob_() {
             recipients.join(','),
             `【逾期警告】${audit['工程簡稱']} 已逾期 ${daysOverdue} 天，請立即處理！`,
             '',
-            { htmlBody: buildOverdueEmailHtml_(audit, daysOverdue) }
+            { htmlBody: buildOverdueEmailHtml_(audit, daysOverdue, uploadUrl) }
           );
           results.overdue++;
           const logEntry = `📨 [逾期第${daysOverdue}天] ${abbr} → ${recipients.join(', ')}`;
@@ -1649,6 +1686,215 @@ function setupDailyTrigger_() {
 }
 
 
+// ==================== 安全上傳連結 (Token) ====================
+
+/**
+ * 產生安全上傳 Token
+ * @param {string} caseId - 案件ID
+ * @param {string} email - 授權的承辦人 Email
+ * @param {string|Date} dueDate - 最晚應核章日期（Token 到期 = 此日期 + 7 天）
+ * @returns {string} token
+ */
+function generateUploadToken_(caseId, email, dueDate) {
+  const raw = caseId + email + new Date().getTime() + Math.random().toString(36);
+  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, raw);
+  const token = digest.map(function(b) {
+    return ('0' + ((b + 256) % 256).toString(16)).slice(-2);
+  }).join('');
+
+  // 計算到期時間：核章截止日 + 7 天
+  const expiry = new Date(dueDate);
+  expiry.setDate(expiry.getDate() + 7);
+
+  // 取得或建立 Token 工作表
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(SHEET_UPLOAD_TOKENS);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_UPLOAD_TOKENS);
+    sheet.getRange(1, 1, 1, 6).setValues([['Token', '案件ID', '授權Email', '建立時間', '到期時間', '狀態']]);
+    sheet.setFrozenRows(1);
+  }
+
+  // 檢查是否已有該案件的有效 Token（避免重複產生）
+  if (sheet.getLastRow() > 1) {
+    const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 6).getValues();
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][1] == caseId && data[i][5] === '有效') {
+        const existingExpiry = new Date(data[i][4]);
+        if (existingExpiry > new Date()) {
+          console.log(`[Token] 案件 ${caseId} 已有有效 Token，直接沿用`);
+          return data[i][0]; // 沿用現有 Token
+        } else {
+          // 已過期，標記
+          sheet.getRange(i + 2, 6).setValue('已過期');
+        }
+      }
+    }
+  }
+
+  sheet.appendRow([token, caseId, email, new Date(), expiry, '有效']);
+  console.log(`[Token] 已為案件 ${caseId} 產生新 Token（到期：${expiry}）`);
+  return token;
+}
+
+/**
+ * 驗證 Token 並回傳案件摘要（公開 API，不需 Google 登入）
+ */
+function verifyUploadToken_(token) {
+  if (!token) throw new Error('缺少上傳驗證碼 (Token)');
+
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(SHEET_UPLOAD_TOKENS);
+  if (!sheet || sheet.getLastRow() < 2) throw new Error('無效的上傳連結');
+
+  const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 6).getValues();
+  let tokenRow = null;
+  let tokenRowIdx = -1;
+
+  for (let i = 0; i < data.length; i++) {
+    if (data[i][0] === token) {
+      tokenRow = data[i];
+      tokenRowIdx = i + 2;
+      break;
+    }
+  }
+
+  if (!tokenRow) throw new Error('無效的上傳連結，請向工安組索取新的連結。');
+
+  // 檢查狀態
+  const status = tokenRow[5];
+  if (status === '已過期') throw new Error('此上傳連結已過期，請向工安組索取新的連結。');
+
+  // 檢查到期時間
+  const expiry = new Date(tokenRow[4]);
+  if (new Date() > expiry) {
+    sheet.getRange(tokenRowIdx, 6).setValue('已過期');
+    throw new Error('此上傳連結已過期，請向工安組索取新的連結。');
+  }
+
+  // Token 有效，取得案件資訊
+  const caseId = tokenRow[1];
+  const allAudits = getAuditRecords_();
+  const audit = allAudits.find(function(a) { return a.id == caseId; });
+  if (!audit) throw new Error('找不到對應的案件資料，案件可能已被刪除。');
+
+  // 檢查案件狀態，已結案不允許上傳
+  if (audit['辦理狀態'] === STATUS.STAGE4) {
+    throw new Error('此案件已結案，無需再上傳。');
+  }
+
+  // 組裝 S2 下載連結
+  const s2Links = [];
+  const s2eUrl = audit['S2員工查核檔案位置'];
+  const s2cUrl = audit['S2廠商查核檔案位置'];
+  if (s2eUrl) {
+    const fid = s2eUrl.includes('/d/') ? s2eUrl.split('/d/')[1].split('/')[0] : '';
+    s2Links.push({ label: 'S2 員工改善單', viewUrl: s2eUrl, downloadUrl: fid ? 'https://drive.google.com/uc?export=download&id=' + fid : s2eUrl });
+  }
+  if (s2cUrl) {
+    const fid = s2cUrl.includes('/d/') ? s2cUrl.split('/d/')[1].split('/')[0] : '';
+    s2Links.push({ label: 'S2 廠商改善單', viewUrl: s2cUrl, downloadUrl: fid ? 'https://drive.google.com/uc?export=download&id=' + fid : s2cUrl });
+  }
+
+  return {
+    success: true,
+    data: {
+      caseId: caseId,
+      abbr: audit['工程簡稱'],
+      name: audit['工程名稱'],
+      contractor: audit['承攬商'],
+      department: audit['主辦部門'],
+      auditDate: audit['查核日期'],
+      dueDate: audit['最晚應核章日期'],
+      status: audit['辦理狀態'],
+      s2Links: s2Links,
+      authorizedEmail: tokenRow[2],
+      tokenExpiry: Utilities.formatDate(expiry, Session.getScriptTimeZone(), 'yyyy-MM-dd')
+    }
+  };
+}
+
+/**
+ * Token 授權上傳 S3 檔案（公開 API，不需 Google 登入）
+ */
+function tokenUploadFile_(payload) {
+  const token = payload.token;
+  const fileBase64 = payload.fileBase64;
+  const fileName = payload.fileName;
+
+  if (!token || !fileBase64 || !fileName) throw new Error('缺少必要參數');
+
+  // 先驗證 Token
+  const verify = verifyUploadToken_(token);
+  if (!verify.success) throw new Error(verify.message);
+
+  const caseId = verify.data.caseId;
+  const authorizedEmail = verify.data.authorizedEmail;
+
+  // 使用與主系統相同的上傳邏輯
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_AUDIT_LIST);
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const caseIdCol = headers.indexOf('案件ID');
+
+  const caseIds = sheet.getRange(2, caseIdCol + 1, sheet.getLastRow() - 1, 1).getValues().flat();
+  const rowIdx = caseIds.findIndex(function(id) { return id == caseId; }) + 2;
+  if (rowIdx < 2) throw new Error('找不到對應的案件');
+
+  const rowData = sheet.getRange(rowIdx, 1, 1, headers.length).getValues()[0];
+  const auditData = {};
+  headers.forEach(function(h, i) { auditData[h] = rowData[i]; });
+
+  // 產生檔名
+  const fileExtension = fileName.includes('.') ? '.' + fileName.split('.').pop() : '.pdf';
+  const newFileName = generateFileName_('stage3', auditData, fileExtension);
+
+  // 建立資料夾與上傳
+  const auditDate = new Date(auditData['查核日期']);
+  const formattedDate = Utilities.formatDate(auditDate, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  const folderName = formattedDate + '_' + auditData['工程簡稱'];
+  const rootFolder = DriveApp.getFolderById(MAIN_DRIVE_FOLDER_ID);
+
+  var targetFolderIterator = rootFolder.getFoldersByName(folderName);
+  const targetFolder = targetFolderIterator.hasNext() ? targetFolderIterator.next() : rootFolder.createFolder(folderName);
+
+  const blob = Utilities.newBlob(Utilities.base64Decode(fileBase64), 'application/pdf', newFileName);
+  const uploadedFile = targetFolder.createFile(blob);
+  const fileUrl = uploadedFile.getUrl();
+
+  // 更新狀態
+  const currentStatus = auditData['辦理狀態'] || '';
+  const statusOrder = [STATUS.STAGE1, STATUS.STAGE2, STATUS.STAGE3, STATUS.STAGE4];
+  const currentIndex = statusOrder.indexOf(currentStatus);
+  if (currentIndex < 2) {
+    sheet.getRange(rowIdx, headers.indexOf('辦理狀態') + 1).setValue(STATUS.STAGE3);
+  }
+
+  // 寫入 S3 檔案連結
+  const s3Col = headers.indexOf('S3廠商及員工改善後核章檔案位置');
+  if (s3Col > -1) {
+    sheet.getRange(rowIdx, s3Col + 1).setValue(fileUrl);
+  }
+
+  sheet.getRange(rowIdx, headers.indexOf('修改人員') + 1).setValue(authorizedEmail + ' (Token上傳)');
+
+  logChange_(caseId, auditData['工程簡稱'], authorizedEmail + '(Token)', '檔案上傳', 'S3 廠商及員工 (安全連結上傳)', newFileName, fileUrl);
+
+  console.log(`📤 [Token上傳成功] ${auditData['工程簡稱']} | 上傳者: ${authorizedEmail} | 檔案: ${newFileName}`);
+
+  return {
+    success: true,
+    message: '檔案 "' + newFileName + '" 上傳成功！案件狀態已更新為第3階段。'
+  };
+}
+
+/**
+ * 產生上傳頁面的完整 URL
+ */
+function getUploadPageUrl_(token) {
+  return SYSTEM_URL + 'upload.html?token=' + token;
+}
+
+
 // ==================== HTML 郵件模板 ====================
 
 /** 共用 Header/Footer HTML */
@@ -1680,8 +1926,11 @@ function _emailHeader_(title, subtitle, accentColor) {
 `;
 }
 
-function _emailFooter_(systemUrl) {
+function _emailFooter_(systemUrl, uploadUrl) {
   systemUrl = systemUrl || SYSTEM_URL;
+  const uploadBtn = uploadUrl ? `
+        <a href="${uploadUrl}" style="display:inline-block;background:#059669;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;padding:10px 22px;border-radius:6px;margin-right:8px;">📤 上傳核章版</a>
+  ` : '';
   return `
 <!-- Footer -->
 <tr><td style="background:#f8fafc;padding:20px 36px;border-top:1px solid #e2e8f0;">
@@ -1692,6 +1941,7 @@ function _emailFooter_(systemUrl) {
         如有疑問請聯絡工安組。
       </td>
       <td align="right">
+        ${uploadBtn}
         <a href="${systemUrl}" style="display:inline-block;background:#1e40af;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;padding:10px 22px;border-radius:6px;">前往系統</a>
       </td>
     </tr>
@@ -1705,7 +1955,7 @@ function _emailFooter_(systemUrl) {
 }
 
 /** 共用案件資訊 Table */
-function _caseInfoTable_(audit) {
+function _caseInfoTable_(audit, uploadUrl) {
   const s2Url = audit['S2員工查核檔案位置'] || audit['S2廠商查核檔案位置'] || audit['第2階段連結'];
   // 建立直接下載連結：將 /file/d/.../view 轉換為 /uc?export=download&id=...
   let s2DownloadLink = '';
@@ -1721,8 +1971,17 @@ function _caseInfoTable_(audit) {
     </tr>`;
   }
 
+  const uploadLinkRow = uploadUrl ? `
+    <tr style="background:#f0fdf4;">
+      <td style="padding:10px 14px;font-size:12px;color:#166534;font-weight:600;white-space:nowrap;width:110px;border-bottom:1px solid #e2e8f0;">安全上傳連結</td>
+      <td style="padding:10px 14px;font-size:14px;color:#059669;border-bottom:1px solid #e2e8f0;">
+        <a href="${uploadUrl}" style="color:#059669;font-weight:700;text-decoration:none;">📤 點此直接進入上傳頁面 (免登入)</a>
+      </td>
+    </tr>` : '';
+
   return `
 <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:16px;border:1px solid #e2e8f0;">
+  ${uploadLinkRow}
   <tr style="background:#f8fafc;">
     <td style="padding:10px 14px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;width:110px;border-bottom:1px solid #e2e8f0;">工程簡稱</td>
     <td style="padding:10px 14px;font-size:14px;color:#1e293b;font-weight:600;border-bottom:1px solid #e2e8f0;">${audit['工程簡稱'] || '-'}</td>
@@ -1751,7 +2010,8 @@ function _caseInfoTable_(audit) {
 /**
  * Stage 1 HTML 模板：S2 已上傳，通知承辦人可先行下載轉知承攬商改善
  */
-function buildStage1EmailHtml_(audit) {
+function buildStage1EmailHtml_(audit, uploadUrl) {
+  const uploadHint = uploadUrl ? `<br>📤 或直接<a href="${uploadUrl}" style="color:#059669;font-weight:700;">點此上傳 S3 核章版</a>（免登入）` : '';
   return _emailHeader_(
     '改善單已上傳，可先行下載轉知承攬商改善',
     `${audit['主辦部門']} ｜ ${audit['工程簡稱']}`,
@@ -1768,25 +2028,25 @@ function buildStage1EmailHtml_(audit) {
     書面文件待核定後傳遞。
   </p>
 
-  ${_caseInfoTable_(audit)}
+  ${_caseInfoTable_(audit, uploadUrl)}
 
   <!-- 綠色提示框 -->
   <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
     <tr><td style="background:#ecfdf5;border-left:4px solid #10b981;border-radius:0 8px 8px 0;padding:14px 18px;">
       <p style="margin:0;font-size:14px;color:#065f46;line-height:1.7;">
-        📋 <strong>後續步驟：</strong>請至系統確認改善內容正確後，
-        再上傳「S3 工作隊核章版」完成程序。
+        📋 <strong>後續步驟：</strong>請確認改善內容正確後，
+        上傳「S3 工作隊核章版」完成程序。${uploadHint}
       </p>
     </td></tr>
   </table>
 </td></tr>
-` + _emailFooter_();
+` + _emailFooter_(null, uploadUrl);
 }
 
 /**
  * Stage 2 HTML 模板：距到期 3 天，提醒速辦 + 核章日期警示
  */
-function buildStage2EmailHtml_(audit, daysLeft) {
+function buildStage2EmailHtml_(audit, daysLeft, uploadUrl) {
   const dueDate = audit['最晚應核章日期'];
   return _emailHeader_(
     `距核章截止剩 ${daysLeft} 天，請速辦！`,
@@ -1809,7 +2069,7 @@ function buildStage2EmailHtml_(audit, daysLeft) {
     以下案件的<strong>「S3 工作隊核章版」尚未上傳</strong>，距截止日期僅剩 <strong style="color:#b45309;">${daysLeft} 天</strong>，請儘速辦理。
   </p>
 
-  ${_caseInfoTable_(audit)}
+  ${_caseInfoTable_(audit, uploadUrl)}
 
   <!-- 紅色重點提醒 -->
   <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
@@ -1821,13 +2081,13 @@ function buildStage2EmailHtml_(audit, daysLeft) {
     </td></tr>
   </table>
 </td></tr>
-` + _emailFooter_();
+` + _emailFooter_(null, uploadUrl);
 }
 
 /**
  * Stage 3 HTML 模板：距到期 1 天，同時寄承辦人+課長，強調最後機會
  */
-function buildStage3EmailHtml_(audit, daysLeft) {
+function buildStage3EmailHtml_(audit, daysLeft, uploadUrl) {
   const dueDate = audit['最晚應核章日期'];
   return _emailHeader_(
     `【緊急】明日即為核章截止日！`,
@@ -1851,7 +2111,7 @@ function buildStage3EmailHtml_(audit, daysLeft) {
     請承辦人員<strong>立即聯繫相關單位</strong>完成核章程序。
   </p>
 
-  ${_caseInfoTable_(audit)}
+  ${_caseInfoTable_(audit, uploadUrl)}
 
   <!-- 雙重重點提醒 -->
   <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
@@ -1864,13 +2124,13 @@ function buildStage3EmailHtml_(audit, daysLeft) {
     </td></tr>
   </table>
 </td></tr>
-` + _emailFooter_();
+` + _emailFooter_(null, uploadUrl);
 }
 
 /**
  * 逾期通知 HTML 模板：S3 尚未上傳，已超過截止日，每日通知承辦人 + 課長
  */
-function buildOverdueEmailHtml_(audit, daysOverdue) {
+function buildOverdueEmailHtml_(audit, daysOverdue, uploadUrl) {
   const dueDate = audit['最晚應核章日期'];
   return _emailHeader_(
     `【逾期警告】已逾期 ${daysOverdue} 天！`,
@@ -1895,7 +2155,7 @@ function buildOverdueEmailHtml_(audit, daysOverdue) {
     現通知<strong>承辦人員及課長</strong>，請立即確認並儘速補件。
   </p>
 
-  ${_caseInfoTable_(audit)}
+  ${_caseInfoTable_(audit, uploadUrl)}
 
   <!-- 紫色警示框 -->
   <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
@@ -1907,7 +2167,7 @@ function buildOverdueEmailHtml_(audit, daysOverdue) {
     </td></tr>
   </table>
 </td></tr>
-` + _emailFooter_();
+` + _emailFooter_(null, uploadUrl);
 }
 
 /** 個別案件稽催預覽 */
@@ -1939,12 +2199,12 @@ function previewCaseReminder_(caseId) {
         <tr><td style="padding:32px 36px;">
           <p style="font-size:15px;color:#334155;line-height:1.7;margin:0 0 20px;"><strong>${audit['承辦人姓名'] || '承辦人'}</strong> 您好，</p>
           <p style="font-size:15px;color:#334155;line-height:1.7;margin:0 0 20px;">系統提醒您，此案件<strong>「S2 原始改善單」尚未上傳</strong>，請儘速補齊相關照片與文件。</p>
-          ${_caseInfoTable_(audit)}
+          ${_caseInfoTable_(audit, null)}
         </td></tr>` + _emailFooter_();
     } else {
         if (daysLeft !== null && daysLeft <= 1) {
             subject = `【緊急】${audit['工程簡稱']} 核章截止日將至，請立即處理！`;
-            htmlBody = buildStage3EmailHtml_(audit, daysLeft);
+            htmlBody = buildStage3EmailHtml_(audit, daysLeft, null);
         } else {
             const displayDays = daysLeft !== null ? daysLeft : '未設定';
             subject = `【工安查核】${audit['工程簡稱']} 距核章截止剩 ${displayDays} 天，請速辦！`;

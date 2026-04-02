@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工安查核 - 上傳核章版</title>
+    <meta name="description" content="工安查核管理系統 - S3 工作隊核章版安全上傳頁面">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1e40af;
+            --primary-light: #3b82f6;
+            --success: #059669;
+            --success-bg: #ecfdf5;
+            --success-border: #10b981;
+            --warning: #f59e0b;
+            --danger: #dc2626;
+            --bg: #f1f5f9;
+            --bg-card: #ffffff;
+            --text: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --shadow: 0 4px 24px rgba(0,0,0,0.08);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .header-bar {
+            width: 100%;
+            background: linear-gradient(135deg, var(--primary) 0%, #1e3a8a 100%);
+            padding: 20px 0;
+            text-align: center;
+            color: #fff;
+            box-shadow: 0 2px 12px rgba(30,64,175,0.3);
+        }
+        .header-bar h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: 1px; }
+        .header-bar .sub { font-size: 0.8rem; opacity: 0.8; margin-top: 4px; }
+
+        .container {
+            width: 100%;
+            max-width: 640px;
+            padding: 24px 16px;
+            flex: 1;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            padding: 28px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+        }
+
+        .card-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-title i { color: var(--primary); }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 100px 1fr;
+            gap: 10px;
+            font-size: 0.9rem;
+        }
+        .info-label {
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+        .info-value { font-weight: 500; }
+        .info-value.danger { color: var(--danger); font-weight: 700; }
+        .info-value.primary { color: var(--primary); }
+
+        .s2-links {
+            margin-top: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .s2-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            background: #f0f4ff;
+            border-radius: 10px;
+            border: 1px solid #dbeafe;
+            text-decoration: none;
+            color: var(--primary);
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        .s2-link:hover {
+            background: #dbeafe;
+            box-shadow: 0 2px 8px rgba(30,64,175,0.15);
+            transform: translateY(-1px);
+        }
+        .s2-link i { font-size: 1.1rem; }
+
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: 14px;
+            padding: 40px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: var(--primary-light);
+            background: rgba(59,130,246,0.04);
+        }
+        .upload-zone.has-file {
+            border-color: var(--success);
+            background: var(--success-bg);
+        }
+        .upload-zone .icon {
+            font-size: 2.5rem;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+        .upload-zone.has-file .icon { color: var(--success); }
+        .upload-zone .text {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+        .upload-zone .file-name {
+            font-weight: 700;
+            font-size: 1rem;
+            color: var(--text);
+            margin-top: 8px;
+        }
+        .upload-zone input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 14px 28px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(30,64,175,0.3);
+        }
+        .btn-primary:hover:not(:disabled) {
+            box-shadow: 0 6px 20px rgba(30,64,175,0.4);
+            transform: translateY(-1px);
+        }
+        .btn-success {
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+            color: #fff;
+        }
+
+        .status-banner {
+            padding: 16px 20px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .status-banner i { font-size: 1.2rem; margin-top: 2px; }
+        .status-banner.error {
+            background: #fef2f2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+        }
+        .status-banner.success {
+            background: var(--success-bg);
+            color: #065f46;
+            border: 1px solid var(--success-border);
+        }
+        .status-banner.info {
+            background: #f0f4ff;
+            color: var(--primary);
+            border: 1px solid #93c5fd;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 12px;
+        }
+        .progress-bar .fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--primary-light));
+            border-radius: 3px;
+            width: 0;
+            transition: width 0.3s;
+        }
+
+        .loading-screen {
+            text-align: center;
+            padding: 60px 24px;
+        }
+        .loading-screen .spinner {
+            font-size: 2rem;
+            color: var(--primary);
+            animation: spin 1s infinite linear;
+            margin-bottom: 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .token-info {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+
+        .hidden { display: none !important; }
+
+        @media (max-width: 480px) {
+            .container { padding: 16px 12px; }
+            .card { padding: 20px 16px; }
+            .info-grid { grid-template-columns: 85px 1fr; font-size: 0.85rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-bar">
+        <h1><i class="fas fa-hard-hat"></i> 工安查核管理系統</h1>
+        <div class="sub">S3 工作隊核章版 安全上傳</div>
+    </div>
+
+    <div class="container">
+        <!-- 載入中 -->
+        <div id="loadingView" class="card loading-screen">
+            <div class="spinner"><i class="fas fa-circle-notch fa-spin"></i></div>
+            <div>正在驗證上傳連結...</div>
+        </div>
+
+        <!-- 錯誤畫面 -->
+        <div id="errorView" class="hidden">
+            <div class="status-banner error">
+                <i class="fas fa-exclamation-triangle"></i>
+                <div id="errorMessage">連結無效或已過期</div>
+            </div>
+            <div style="text-align:center; margin-top:24px;">
+                <p style="font-size:0.85rem; color:var(--text-muted); line-height:1.7;">
+                    如需上傳檔案，請聯繫工安組取得新的上傳連結。<br>
+                    或使用 Google 帳號登入
+                    <a href="./" style="color:var(--primary); font-weight:600;">主系統</a> 操作。
+                </p>
+            </div>
+        </div>
+
+        <!-- 主介面 -->
+        <div id="mainView" class="hidden">
+            <!-- 案件資訊 -->
+            <div class="card">
+                <div class="card-title"><i class="fas fa-clipboard-list"></i> 案件資訊</div>
+                <div class="info-grid">
+                    <div class="info-label">工程簡稱</div>
+                    <div class="info-value primary" id="infoAbbr">-</div>
+                    <div class="info-label">工程名稱</div>
+                    <div class="info-value" id="infoName">-</div>
+                    <div class="info-label">承攬商</div>
+                    <div class="info-value" id="infoContractor">-</div>
+                    <div class="info-label">主辦部門</div>
+                    <div class="info-value" id="infoDept">-</div>
+                    <div class="info-label">查核日期</div>
+                    <div class="info-value" id="infoAuditDate">-</div>
+                    <div class="info-label">核章截止日</div>
+                    <div class="info-value danger" id="infoDueDate">-</div>
+                    <div class="info-label">目前狀態</div>
+                    <div class="info-value" id="infoStatus">-</div>
+                </div>
+                <div class="token-info">
+                    <i class="fas fa-shield-alt"></i>
+                    授權 Email：<span id="infoEmail">-</span> ｜ 連結有效至：<span id="infoExpiry">-</span>
+                </div>
+            </div>
+
+            <!-- S2 下載區 -->
+            <div id="s2Section" class="card hidden">
+                <div class="card-title"><i class="fas fa-download"></i> S2 改善單下載</div>
+                <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:12px;">
+                    請先下載改善單，經廠商核章後再上傳核章版。
+                </p>
+                <div id="s2LinksList" class="s2-links"></div>
+            </div>
+
+            <!-- 上傳區 -->
+            <div class="card" id="uploadSection">
+                <div class="card-title"><i class="fas fa-cloud-upload-alt"></i> 上傳 S3 工作隊核章版</div>
+                <div id="uploadZone" class="upload-zone">
+                    <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+                    <div class="icon"><i class="fas fa-cloud-upload-alt"></i></div>
+                    <div class="text">
+                        點擊選擇檔案 或 拖曳檔案至此<br>
+                        <small>支援 PDF, Word, 圖片格式 (最大 50MB)</small>
+                    </div>
+                    <div id="fileName" class="file-name hidden"></div>
+                </div>
+
+                <div id="uploadProgress" class="hidden" style="margin-top:16px;">
+                    <div style="font-size:0.85rem; color:var(--text-muted);">
+                        <i class="fas fa-spinner fa-spin"></i> 正在上傳，請勿關閉頁面...
+                    </div>
+                    <div class="progress-bar">
+                        <div id="progressFill" class="fill"></div>
+                    </div>
+                </div>
+
+                <button id="btnUpload" class="btn btn-primary" style="margin-top:16px;" disabled onclick="doUpload()">
+                    <i class="fas fa-paper-plane"></i> 確認上傳
+                </button>
+            </div>
+
+            <!-- 上傳成功 -->
+            <div id="successView" class="hidden">
+                <div class="status-banner success">
+                    <i class="fas fa-check-circle"></i>
+                    <div>
+                        <strong>上傳成功！</strong><br>
+                        <span id="successMessage">檔案已成功上傳，案件狀態已更新為第3階段。</span>
+                    </div>
+                </div>
+                <div style="text-align:center; margin-top:20px;">
+                    <button class="btn btn-success" onclick="resetUpload()" style="max-width:300px; margin:0 auto;">
+                        <i class="fas fa-redo"></i> 重新上傳（如需更換檔案）
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        工安查核管理系統 &copy; 2026 ｜ 此頁面透過安全連結驗證，無需帳號登入
+    </div>
+
+    <script src="js/config.js"></script>
+    <script>
+        const GAS_URL = window.ENV && window.ENV.GAS_URL ? window.ENV.GAS_URL : '';
+        let currentToken = '';
+        let currentCaseData = null;
+        let selectedFile = null;
+
+        // API 呼叫
+        async function apiCall(action, payload = {}) {
+            const res = await fetch(GAS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action, payload })
+            });
+            const result = await res.json();
+            if (!result.success) throw new Error(result.message || '伺服器錯誤');
+            return result;
+        }
+
+        // 初始化
+        async function init() {
+            const params = new URLSearchParams(window.location.search);
+            currentToken = params.get('token');
+
+            if (!currentToken) {
+                showError('缺少上傳驗證碼，請從信件中的連結進入此頁面。');
+                return;
+            }
+
+            try {
+                const res = await apiCall('verify_upload_token', { token: currentToken });
+                currentCaseData = res.data;
+                renderCaseInfo(currentCaseData);
+                document.getElementById('loadingView').classList.add('hidden');
+                document.getElementById('mainView').classList.remove('hidden');
+            } catch (e) {
+                showError(e.message);
+            }
+        }
+
+        function showError(msg) {
+            document.getElementById('loadingView').classList.add('hidden');
+            document.getElementById('errorView').classList.remove('hidden');
+            document.getElementById('errorMessage').textContent = msg;
+        }
+
+        function renderCaseInfo(data) {
+            document.getElementById('infoAbbr').textContent = data.abbr || '-';
+            document.getElementById('infoName').textContent = data.name || '-';
+            document.getElementById('infoContractor').textContent = data.contractor || '-';
+            document.getElementById('infoDept').textContent = data.department || '-';
+            document.getElementById('infoAuditDate').textContent = data.auditDate || '-';
+            document.getElementById('infoDueDate').textContent = data.dueDate || '-';
+            document.getElementById('infoStatus').textContent = data.status || '-';
+            document.getElementById('infoEmail').textContent = data.authorizedEmail || '-';
+            document.getElementById('infoExpiry').textContent = data.tokenExpiry || '-';
+
+            // S2 下載連結
+            if (data.s2Links && data.s2Links.length > 0) {
+                const s2Section = document.getElementById('s2Section');
+                const linksList = document.getElementById('s2LinksList');
+                s2Section.classList.remove('hidden');
+                linksList.innerHTML = data.s2Links.map(l => `
+                    <a href="${l.downloadUrl}" class="s2-link" target="_blank">
+                        <i class="fas fa-file-pdf"></i>
+                        <span>${l.label}</span>
+                        <i class="fas fa-download" style="margin-left:auto;"></i>
+                    </a>
+                `).join('');
+            }
+        }
+
+        // 檔案選擇
+        const fileInput = document.getElementById('fileInput');
+        const uploadZone = document.getElementById('uploadZone');
+
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            selectFile(file);
+        });
+
+        uploadZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+        uploadZone.addEventListener('dragleave', function() {
+            uploadZone.classList.remove('dragover');
+        });
+        uploadZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) selectFile(file);
+        });
+
+        function selectFile(file) {
+            if (file.size > 50 * 1024 * 1024) {
+                alert('檔案大小超過 50MB 限制');
+                return;
+            }
+            selectedFile = file;
+            uploadZone.classList.add('has-file');
+            document.getElementById('fileName').textContent = file.name + ' (' + formatSize(file.size) + ')';
+            document.getElementById('fileName').classList.remove('hidden');
+            document.getElementById('btnUpload').disabled = false;
+        }
+
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        // 上傳
+        async function doUpload() {
+            if (!selectedFile || !currentToken) return;
+
+            const btn = document.getElementById('btnUpload');
+            const progress = document.getElementById('uploadProgress');
+            const fill = document.getElementById('progressFill');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 上傳中...';
+            progress.classList.remove('hidden');
+
+            // 模擬進度條（讀取檔案階段）
+            fill.style.width = '20%';
+
+            try {
+                // 讀取 Base64
+                const base64 = await fileToBase64(selectedFile);
+                fill.style.width = '50%';
+
+                // 發送至 GAS
+                const res = await apiCall('token_upload_file', {
+                    token: currentToken,
+                    fileBase64: base64,
+                    fileName: selectedFile.name
+                });
+
+                fill.style.width = '100%';
+
+                // 顯示成功
+                document.getElementById('uploadSection').classList.add('hidden');
+                document.getElementById('s2Section').classList.add('hidden');
+                document.getElementById('successView').classList.remove('hidden');
+                document.getElementById('successMessage').textContent = res.message;
+
+            } catch (e) {
+                alert('上傳失敗：' + e.message);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-paper-plane"></i> 確認上傳';
+                progress.classList.add('hidden');
+            }
+        }
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const base64 = reader.result.split(',')[1]; // 去掉 data:xxx;base64, 前綴
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function resetUpload() {
+            selectedFile = null;
+            fileInput.value = '';
+            uploadZone.classList.remove('has-file');
+            document.getElementById('fileName').classList.add('hidden');
+            document.getElementById('btnUpload').disabled = true;
+            document.getElementById('btnUpload').innerHTML = '<i class="fas fa-paper-plane"></i> 確認上傳';
+            document.getElementById('uploadProgress').classList.add('hidden');
+            document.getElementById('progressFill').style.width = '0';
+            document.getElementById('uploadSection').classList.remove('hidden');
+            document.getElementById('successView').classList.add('hidden');
+            // 重新顯示 S2 下載區
+            if (currentCaseData && currentCaseData.s2Links && currentCaseData.s2Links.length > 0) {
+                document.getElementById('s2Section').classList.remove('hidden');
+            }
+        }
+
+        // 啟動
+        window.onload = init;
+    </script>
+</body>
+</html>
