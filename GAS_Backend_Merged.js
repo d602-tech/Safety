@@ -1442,23 +1442,26 @@ function sendTestEmail_() {
       '承辦課長電子信箱': TEST_EMAIL
     };
 
+    // 產位測試用的上傳連結 (僅供預覽介面，Token 為虛擬)
+    const testUrl = getUploadPageUrl_('TEST_TOKEN_PREVIEW');
+
     // 測試三種模板
     GmailApp.sendEmail(TEST_EMAIL,
       '【測試信】第1階段 - S2已上傳即時通知',
       '',
-      { htmlBody: buildStage1EmailHtml_(fakeCase) }
+      { htmlBody: buildStage1EmailHtml_(fakeCase, testUrl) }
     );
 
     GmailApp.sendEmail(TEST_EMAIL,
       '【測試信】第2階段 - 到期前3日提醒',
       '',
-      { htmlBody: buildStage2EmailHtml_(fakeCase, 3) }
+      { htmlBody: buildStage2EmailHtml_(fakeCase, 3, testUrl) }
     );
 
     GmailApp.sendEmail(TEST_EMAIL,
       '【測試信】第3階段 - 最後1日催辦',
       '',
-      { htmlBody: buildStage3EmailHtml_(fakeCase, 1) }
+      { htmlBody: buildStage3EmailHtml_(fakeCase, 1, testUrl) }
     );
 
     return { success: true, message: `已成功發送 3 封測試信至 ${TEST_EMAIL}` };
