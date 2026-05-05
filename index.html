@@ -11,6 +11,8 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- 引入 FontAwesome 圖標 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 防止 favicon 404 -->
+    <link rel="icon" href="data:,">
 </head>
 <body>
     <header class="top-nav">
@@ -81,28 +83,63 @@
             </div>
 
             <div class="workflow-container">
-                <div class="flow-item step1">
-                    <div class="flow-header"><div class="dot"></div> 第1階段 - 登錄查核地點與日期</div>
-                    <div class="flow-content">由【查核人員或管理員】登錄案件地點、日期及工程簡稱。</div>
-                    <div class="flow-footer" onclick="app.openNewCaseModal()"><i class="fas fa-plus-circle"></i> 前往登錄頁面</div>
-                </div>
-                <div class="flow-item step2">
-                    <div class="flow-header"><div class="dot"></div> 第2階段 - 上傳工安核紀錄及改善單</div>
-                    <div class="flow-content">由【查核人員】上傳原始工安核紀錄及單項改善清單。</div>
-                    <div class="flow-footer"><i class="fas fa-upload"></i> 上傳文件</div>
-                </div>
-                <div class="flow-item step3">
-                    <div class="flow-header"><div class="dot"></div> 第3階段 - 上傳工作隊核章版</div>
-                    <div class="flow-content">
-                        由【受查部門人員】上傳工安查核紀錄核章版資料。<br>
-                        <small style="color:var(--warning); font-weight:600;">⚠️ 註：第一個經辦的核章請務必於「改善截止日期」前完成，延後核章將導致本處績效分數降低。</small>
+                <!-- S1 卡片 -->
+                <div class="flow-card s1">
+                    <div class="flow-card-header">
+                        <div class="stage-title"><i class="fas fa-map-marker-alt"></i> S1 登錄案件</div>
+                        <span class="role-badge safety">查核人員 / Admin</span>
                     </div>
-                    <div class="flow-footer"><i class="fas fa-file-signature"></i> 上傳核章版</div>
+                    <div class="stage-desc">
+                        登錄查核地點、日期及工程簡稱，系統將自動連動主辦部門與承辦資訊。
+                    </div>
+                    <button class="btn btn-outline flow-card-btn" onclick="app.openNewCaseModal()">
+                        <i class="fas fa-plus-circle"></i> 前往登錄頁面
+                    </button>
                 </div>
-                <div class="flow-item step4">
-                    <div class="flow-header"><div class="dot"></div> 第4階段 - 上傳核章完成版</div>
-                    <div class="flow-content">由【查核人員或管理員】上傳工安查核紀錄結案資料。</div>
-                    <div class="flow-footer"><i class="fas fa-check-double"></i> 完成結案</div>
+
+                <!-- S2 卡片 -->
+                <div class="flow-card s2">
+                    <div class="flow-card-header">
+                        <div class="stage-title"><i class="fas fa-file-upload"></i> S2 上傳紀錄</div>
+                        <span class="role-badge safety">查核人員</span>
+                    </div>
+                    <div class="stage-desc">
+                        上傳原始工安查核紀錄（員工版及承攬商版）及缺失項目。
+                    </div>
+                    <button class="btn btn-outline flow-card-btn" onclick="app.setQuickFilter('active')">
+                        <i class="fas fa-upload"></i> 上傳文件
+                    </button>
+                </div>
+
+                <!-- S3 卡片 -->
+                <div class="flow-card s3">
+                    <div class="flow-card-header">
+                        <div class="stage-title"><i class="fas fa-file-signature"></i> S3 核章回傳</div>
+                        <span class="role-badge dept">受查部門</span>
+                    </div>
+                    <div class="stage-desc">
+                        受查部門人員下載 S2 改善單，完成現場改善並核章後回傳 PDF 版。
+                        <div class="alert-callout">
+                            <i class="fas fa-exclamation-triangle"></i> <b>提醒：</b>第一個經辦核章須於改善期限前完成，逾期將影響績效分數。
+                        </div>
+                    </div>
+                    <button class="btn btn-outline flow-card-btn" onclick="app.setQuickFilter('active')">
+                        <i class="fas fa-stamp"></i> 上傳核章版
+                    </button>
+                </div>
+
+                <!-- S4 卡片 -->
+                <div class="flow-card s4">
+                    <div class="flow-card-header">
+                        <div class="stage-title"><i class="fas fa-check-double"></i> S4 結案歸檔</div>
+                        <span class="role-badge safety">查核人員 / Admin</span>
+                    </div>
+                    <div class="stage-desc">
+                        確認改善缺失已全數關閉，上傳最終結案檔案並設定結案日期。
+                    </div>
+                    <button class="btn btn-outline flow-card-btn" onclick="app.setQuickFilter('active')">
+                        <i class="fas fa-archive"></i> 完成結案
+                    </button>
                 </div>
             </div>
 
@@ -404,7 +441,6 @@
         <img id="lightboxImg" style="max-width:90%; max-height:90%; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,0.5);">
     </div>
 
-    <script src="js/config.js"></script>
     <script src="js/api.js"></script>
     <script src="js/app.js"></script>
 </body>

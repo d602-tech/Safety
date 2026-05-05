@@ -1465,7 +1465,9 @@ const app = {
                                     <label style="font-size:0.8rem; color:var(--text-muted);">承辦課長</label>
                                     <select id="editContractorManagerTitle" onchange="app.handleNameChange(this.value, 'editContractorManagerEmail')" style="width:100%">
                                         <option value="">-- 請選擇人員 --</option>
-                                        ${app.state.deptMembers.filter(m => m['主辦部門'] === c['主辦部門']).map(m => `<option value="${m['姓名']}" ${m['姓名'] === (c['承辦課長姓名']||c['承辦課長職稱']) ? 'selected' : ''}>${m['姓名']}</option>`).join('')}
+                                        ${app.state.deptMembers
+                                            .filter(m => m['主辦部門'] === c['主辦部門'] && (m['職稱'] === '課長' || m['職稱'] === '站長'))
+                                            .map(m => `<option value="${m['姓名']}" ${m['姓名'] === (c['承辦課長姓名']||c['承辦課長職稱']) ? 'selected' : ''}>${m['姓名']} (${m['職稱']})</option>`).join('')}
                                     </select>
                                 </div>
                                 <div><label style="font-size:0.8rem; color:var(--text-muted);">課長Email</label><input type="text" id="editContractorManagerEmail" value="${c['課長Email']||c['承辦課長電子信箱']||''}" style="width:100%" readonly></div>
@@ -1486,6 +1488,8 @@ const app = {
 
                 </div>
             `;
+            const projInfo = app.state.projects.find(p => p.abbr === c['工程簡稱']);
+            const snLabel = projInfo ? `${projInfo.serial} - ` : '';
             app.openModal(`案件管理: ${snLabel}${c['工程簡稱']}`, html);
             setTimeout(() => app.renderAuditMemberInputs(c['查核成員']), 50);
         }
@@ -1850,11 +1854,18 @@ const app = {
             deptInput.value = p.department || '';
             // 連動更新承辦人下拉選單
             const members = app.state.deptMembers.filter(m => m['主辦部門'] === p.department);
+            
+            // 承辦人：全部人員
             let optHtml = '<option value="">-- 請選擇 --</option>';
             optHtml += members.map(m => `<option value="${m['姓名']}">${m['姓名']} (${m['職稱'] || ''})</option>`).join('');
             
+            // 承辦課長：僅顯示「課長」或「站長」
+            const managers = members.filter(m => m['職稱'] === '課長' || m['職稱'] === '站長');
+            let mgrOptHtml = '<option value="">-- 請選擇 --</option>';
+            mgrOptHtml += managers.map(m => `<option value="${m['姓名']}">${m['姓名']} (${m['職稱']})</option>`).join('');
+
             if (nameSelect) nameSelect.innerHTML = optHtml;
-            if (mgrSelect) mgrSelect.innerHTML = optHtml;
+            if (mgrSelect) mgrSelect.innerHTML = mgrOptHtml;
             if (emailInput) emailInput.value = '';
             if (mgrEmailInput) mgrEmailInput.value = '';
         }
