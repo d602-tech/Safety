@@ -51,6 +51,9 @@ const api = {
     // 更新案件資訊
     updateCase: (caseId, details, modifierName) => api.request('update_case', { caseId, details, modifier: modifierName }),
     
+    // 更新案件詳細資料 (第 3 次優化新增)
+    updateCaseDetails: (caseId, details) => api.request('update_case_details', { caseId, details }),
+    
     // 刪除案件
     deleteCase: (id, reason, modifierName) => api.request('delete_case', { caseId: id, reason, modifier: modifierName }),
 

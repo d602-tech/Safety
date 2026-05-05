@@ -1552,6 +1552,43 @@ const app = {
         e.target.classList.add('active');
         document.getElementById(tabId).classList.add('active');
     },
+
+    openStageUpload: (stage) => {
+        if (!app.state.user) {
+            app.showToast("🔒 此功能需要登入權限", "warning");
+            // 捲動到登入區
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+        }
+        
+        const filterMap = {
+            'S1': 'all',
+            'S2': '第1階段-已登錄',
+            'S3': '第2階段-改善單已上傳',
+            'S4': '第3階段-工作隊版已處理'
+        };
+
+        const status = filterMap[stage];
+        if (stage === 'S1') {
+            app.openNewCaseModal();
+            return;
+        }
+
+        // 設置篩選並更新視圖
+        const filterStatus = document.getElementById('filterStatus');
+        if (filterStatus) {
+            filterStatus.value = status === 'all' ? '' : status;
+            app.renderView();
+            app.updateStats();
+            
+            // 捲動至案件清單區
+            setTimeout(() => {
+                const mainView = document.getElementById('mainView');
+                mainView.scrollIntoView({ behavior: 'smooth' });
+                app.showToast(`🔍 已篩選待處理的 ${stage} 案件清單`);
+            }, 100);
+        }
+    },
     renderCaseDeficiencies: (caseId) => {
         const listDiv = document.getElementById('caseDefsList');
         if (!listDiv) return;
@@ -1872,6 +1909,13 @@ const app = {
     },
     handleNewCaseNameChange: (name, emailId) => {
         const dept = document.getElementById('newDept')?.value;
+        const emailInput = document.getElementById(emailId);
+        if (!emailInput) return;
+        const member = app.state.deptMembers.find(m => m['主辦部門'] === dept && m['姓名'] === name);
+        emailInput.value = member ? (member['信箱'] || '') : '';
+    },
+    handleNameChange: (name, emailId = 'editContractorEmail') => {
+        const dept = document.getElementById('editDept')?.value;
         const emailInput = document.getElementById(emailId);
         if (!emailInput) return;
         const member = app.state.deptMembers.find(m => m['主辦部門'] === dept && m['姓名'] === name);
