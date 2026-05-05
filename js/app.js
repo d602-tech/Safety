@@ -1369,11 +1369,11 @@ const app = {
                         <div style="margin-bottom:15px; padding:12px; background:rgba(99,102,241,0.05); border-radius:12px; font-size:0.8rem; border:1px solid rgba(99,102,241,0.1);">
                             <i class="fas fa-info-circle"></i> 當前狀態：<b style="color:var(--primary);">${c['辦理狀態']}</b>
                         </div>
-                                                                        <div class="manage-grid">
-                            ${app.getUploadSection(id, 'stage2e', 'S2 員工', '#ef4444', '請上傳「員工版本」之 S2 檔案。', !!c['S2員工查核檔案位置'])}
-                            ${app.getUploadSection(id, 'stage2c', 'S2 廠商', '#ef4444', '注意：請上傳「承攬商版本」之 S2 檔案。', !!c['S2廠商查核檔案位置'])}
-                            ${app.getUploadSection(id, 'stage3', 'S3 改善核章', '#f59e0b', '受查部門核章版資料', !!c['S3廠商及員工改善後核章檔案位置'])}
-                            ${app.getUploadSection(id, 'stage4c', 'S4 廠商結案', '#10b981', '廠商完成改善結案', !!c['S4結案檔案位置'])}
+                                                                        <div class="manage-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:15px; margin-top:10px;">
+                            ${app.getUploadSection(id, 'stage2e', 'S2 員工改善單', '#3b82f6', '請上傳員工版本改善單。', !!c['S2員工查核檔案位置'], c['S2員工查核檔案位置'])}
+                            ${app.getUploadSection(id, 'stage2c', 'S2 廠商改善單', '#3b82f6', '請上傳承攬商版本改善單。', !!c['S2廠商查核檔案位置'], c['S2廠商查核檔案位置'])}
+                            ${app.getUploadSection(id, 'stage3', 'S3 核章複核', '#f59e0b', '受查部門核章後之 PDF。', !!c['S3廠商及員工改善後核章檔案位置'], c['S3廠商及員工改善後核章檔案位置'])}
+                            ${app.getUploadSection(id, 'stage4', 'S4 結案存檔', '#10b981', '工安組最終結案文件。', !!c['S4結案檔案位置'], c['S4結案檔案位置'])}
                         </div>
                         
                         ${(c['第2階段連結-員工'] || c['第2階段連結-廠商'] || c['第3階段連結'] || c['第4階段連結-員工'] || c['第4階段連結-承攬商']) ? `
@@ -1419,8 +1419,8 @@ const app = {
                     </div>
                     
                     <!-- 分頁三：編輯案件資料 -->
-                    <div id="tabInfo" class="tab-content" style="max-height:60vh; overflow-y:auto; padding:10px; background:#f8fafc; border-radius:12px;">
-                        <div style="background:white; padding:15px; border-radius:10px; box-shadow:0 2px 4px rgba(0,0,0,0.05); margin-bottom:15px;">
+                    <div id="tabInfo" class="tab-content" style="max-height:60vh; overflow-y:auto; padding:10px; background:var(--bg-main); border-radius:12px;">
+                        <div style="background:var(--bg-card); padding:15px; border-radius:10px; border:1px solid var(--border); margin-bottom:15px;">
                             <h4 style="margin:0 0 12px 0; color:var(--primary); display:flex; align-items:center; gap:8px;">
                                 <i class="fas fa-users-cog"></i> 查核人員資訊
                             </h4>
@@ -1441,7 +1441,7 @@ const app = {
                             </div>
                         </div>
 
-                        <div style="background:white; padding:15px; border-radius:10px; box-shadow:0 2px 4px rgba(0,0,0,0.05); margin-bottom:15px;">
+                        <div style="background:var(--bg-card); padding:15px; border-radius:10px; border:1px solid var(--border); margin-bottom:15px;">
                             <h4 style="margin:0 0 12px 0; color:var(--primary); display:flex; align-items:center; gap:8px;">
                                 <i class="fas fa-id-card"></i> 承辦聯絡資訊
                             </h4>
@@ -1460,17 +1460,23 @@ const app = {
                                         ${app.state.deptMembers.filter(m => m['主辦部門'] === c['主辦部門']).map(m => `<option value="${m['姓名']}" ${m['姓名'] === (c['承辦人員姓名']||c['承辦人姓名']) ? 'selected' : ''}>${m['姓名']}</option>`).join('')}
                                     </select>
                                 </div>
-                                <div><label style="font-size:0.8rem; color:var(--text-muted);">承辦人Email</label><input type="text" id="editContractorEmail" value="${c['承辦人Email']||c['承辦人電子信箱']||''}" style="width:100%"></div>
-                                <div><label style="font-size:0.8rem; color:var(--text-muted);">承辦課長姓名</label><input type="text" id="editContractorManagerTitle" value="${c['承辦課長姓名']||c['承辦課長職稱']||''}" style="width:100%"></div>
-                                <div><label style="font-size:0.8rem; color:var(--text-muted);">課長Email</label><input type="text" id="editContractorManagerEmail" value="${c['課長Email']||c['承辦課長電子信箱']||''}" style="width:100%"></div>
+                                <div><label style="font-size:0.8rem; color:var(--text-muted);">承辦人Email</label><input type="text" id="editContractorEmail" value="${c['承辦人Email']||c['承辦人電子信箱']||''}" style="width:100%" readonly></div>
+                                <div>
+                                    <label style="font-size:0.8rem; color:var(--text-muted);">承辦課長</label>
+                                    <select id="editContractorManagerTitle" onchange="app.handleNameChange(this.value, 'editContractorManagerEmail')" style="width:100%">
+                                        <option value="">-- 請選擇人員 --</option>
+                                        ${app.state.deptMembers.filter(m => m['主辦部門'] === c['主辦部門']).map(m => `<option value="${m['姓名']}" ${m['姓名'] === (c['承辦課長姓名']||c['承辦課長職稱']) ? 'selected' : ''}>${m['姓名']}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div><label style="font-size:0.8rem; color:var(--text-muted);">課長Email</label><input type="text" id="editContractorManagerEmail" value="${c['課長Email']||c['承辦課長電子信箱']||''}" style="width:100%" readonly></div>
                             </div>
                         </div>
 
-                        <div style="background:white; padding:15px; border-radius:10px; box-shadow:0 2px 4px rgba(0,0,0,0.05); margin-bottom:15px;">
-                            <h4 style="margin:0 0 12px 0; color:var(--danger); display:flex; align-items:center; gap:8px;">
+                        <div class="${(c['辦理狀態'] === '第4階段-已結案' ? 'bg-s4' : (c['辦理狀態'] === '第3階段-工作隊版已處理' ? 'bg-s3' : (c['辦理狀態'] === '第2階段-改善單已上傳' ? 'bg-s2' : 'bg-s1')))}" style="padding:15px; border-radius:10px; margin-bottom:15px;">
+                            <h4 style="margin:0 0 12px 0; color:inherit; display:flex; align-items:center; gap:8px;">
                                 <i class="fas fa-calendar-check"></i> 案件狀態資訊
                             </h4>
-                            <div><label style="font-size:0.8rem; color:var(--text-muted);">結案日期</label><input type="date" id="editCloseDate" value="${c['結案日期'] ? new Date(c['結案日期']).toISOString().split('T')[0] : ''}" style="width:100%"></div>
+                            <div><label style="font-size:0.8rem; color:inherit; opacity:0.8;">結案日期</label><input type="date" id="editCloseDate" value="${c['結案日期'] ? new Date(c['結案日期']).toISOString().split('T')[0] : ''}" style="width:100%"></div>
                         </div>
 
                         <button class="btn btn-primary" style="width:100%; justify-content:center; height:45px; font-size:1rem;" onclick="app.submitEditCaseInfo('${id}')">
@@ -1480,14 +1486,59 @@ const app = {
 
                 </div>
             `;
-            const projInfo = app.state.projects.find(p => p.abbr === c['工程簡稱']);
-            const snLabel = projInfo ? `${projInfo.serial} - ` : '';
             app.openModal(`案件管理: ${snLabel}${c['工程簡稱']}`, html);
             setTimeout(() => app.renderAuditMemberInputs(c['查核成員']), 50);
         }
         
         // 延時載入缺失清單（確保 DOM 已渲染）
         if (!isLite) setTimeout(() => app.renderCaseDeficiencies(id), 100);
+    },
+
+    submitEditCaseInfo: async (caseId) => {
+        const c = app.state.cases.find(item => item.id == caseId);
+        if (!c) return;
+
+        const inspector = document.getElementById('editInspector').value.trim();
+        const auditLeader = document.getElementById('editAuditLeader').value.trim();
+        const auditMembers = Array.from(document.querySelectorAll('.audit-member-input')).map(i => i.value.trim()).filter(Boolean).join('、');
+        const dept = document.getElementById('editDept').value;
+        const contractorName = document.getElementById('editContractorName').value;
+        const contractorEmail = document.getElementById('editContractorEmail').value;
+        const contractorManagerTitle = document.getElementById('editContractorManagerTitle').value;
+        const contractorManagerEmail = document.getElementById('editContractorManagerEmail').value;
+        const closeDate = document.getElementById('editCloseDate').value;
+
+        // 結案防呆邏輯
+        if (closeDate && !c['S4結案檔案位置']) {
+            alert('⚠️ 無法設定結案：請先在「檔案管理」分頁上傳 S4 結案檔案。');
+            return;
+        }
+
+        app.setModalLoading(true);
+        try {
+            const details = {
+                inspector,
+                auditLeader,
+                auditMembers,
+                department: dept,
+                contractorName,
+                contractorEmail,
+                contractorManagerTitle,
+                contractorManagerEmail,
+                closeDate
+            };
+            await api.updateCaseDetails(caseId, details);
+            app.showToast('✅ 案件資料儲存成功');
+            // 重新初始化資料以反映變更
+            const res = await api.init();
+            app.state.cases = res.data.cases;
+            app.renderView();
+            app.closeModal();
+        } catch (e) {
+            app.showToast(e.message, 'error');
+        } finally {
+            app.setModalLoading(false);
+        }
     },
 
     switchTab: (e, tabId) => {
@@ -1634,27 +1685,29 @@ const app = {
             app.renderCaseDeficiencies(caseId);
         } catch(e) { app.showToast(e.message, "error"); } finally { app.setModalLoading(false); }
     },
-    getUploadSection: (id, stage, label, color, note = '', exists = false) => {
-        const isS2 = stage === 'stage2';
+    getUploadSection: (id, stage, label, color, note = '', exists = false, fileUrl = '') => {
         return `
-        <div class="upload-section ${exists ? 'has-file' : ''}" style="border-left: 5px solid ${color || 'var(--border)'}; position:relative;">
-            ${exists ? `<span style="position:absolute; top:8px; right:8px; font-size:0.6rem; color:var(--success); background:rgba(16,185,129,0.1); padding:2px 6px; border-radius:4px;"><i class="fas fa-check"></i> 已存在</span>` : ''}
-            <div class="upload-header" style="color:${color || 'inherit'}">
-                <i class="fas fa-cloud-upload-alt"></i> ${label}
+        <div class="file-card ${exists ? '' : 'empty-file'}" style="border-top: 4px solid ${color || 'var(--border)'};">
+            <div class="file-card-header" style="color:${color || 'inherit'}">
+                <i class="fas ${exists ? 'fa-file-check' : 'fa-cloud-upload-alt'}"></i> ${label}
             </div>
             
-            ${isS2 ? `
-            <div class="upload-note" style="color:#ef4444; font-weight:700; background:rgba(239,68,68,0.05); padding:6px; border-radius:6px; border:1px dashed #fca5a5; margin:4px 0;">
-                <i class="fas fa-exclamation-triangle"></i> 注意：請僅上傳「承攬商版本」之 S2 檔案
+            <div class="file-card-info">
+                ${exists ? 
+                    `<span style="color:var(--success); font-weight:700;"><i class="fas fa-check-circle"></i> 已上傳檔案</span>` : 
+                    `<span style="color:var(--text-muted);"><i class="fas fa-times-circle"></i> 尚未上傳</span>`
+                }
+                <p style="margin-top:5px; line-height:1.4;">${note}</p>
             </div>
-            ` : ''}
             
-            ${note ? `<p class="upload-note">${note}</p>` : ''}
-            <div class="upload-actions">
-                <input type="file" id="file_${stage}" style="width:100%; margin-bottom:12px; font-size:0.8rem;" />
-                <button class="btn" style="width:100%; justify-content:center; background:${color || 'var(--primary)'}; color:white;" onclick="app.submitFile('${id}', '${stage}', ${exists})">
-                    ${exists ? '替換現有檔案' : '確認上傳存檔'}
-                </button>
+            <div class="upload-actions" style="margin-top:auto;">
+                <input type="file" id="file_${stage}" style="width:100%; margin-bottom:8px; font-size:0.75rem;" />
+                <div class="file-card-actions">
+                    ${exists ? `<a href="${fileUrl}" target="_blank" class="btn btn-outline" style="justify-content:center; padding:8px;"><i class="fas fa-download"></i> 下載</a>` : ''}
+                    <button class="btn" style="width:100%; justify-content:center; background:${color || 'var(--primary)'}; color:white; padding:8px; grid-column: ${exists ? 'auto' : 'span 2'};" onclick="app.submitFile('${id}', '${stage}', ${exists})">
+                        ${exists ? '替換' : '上傳存檔'}
+                    </button>
+                </div>
             </div>
         </div>
     `;
@@ -1745,34 +1798,39 @@ const app = {
         } catch(e) { app.showToast(e.message, "error"); }
     },
     openNewCaseModal: () => {
-        let options = app.state.projects.map(p => `<option value="${p.abbr}">${p.serial} - ${p.abbr} - ${p.name}</option>`).join('');
-        
-        const allMembers = new Set();
-        app.state.cases.forEach(c => {
-            if (c['查核成員']) {
-                c['查核成員'].split(/[,、]/).forEach(m => allMembers.add(m.trim()));
-            }
-        });
-        const datalistHtml = `<datalist id="auditMembersList">${Array.from(allMembers).filter(Boolean).map(m => `<option value="${m}"></option>`).join('')}</datalist>`;
+        let options = '<option value="">-- 請選擇工程 --</option>' + app.state.projects.map(p => `<option value="${p.abbr}">${p.serial} - ${p.abbr} - ${p.name}</option>`).join('');
         
         const html = `
-            ${datalistHtml}
             <div style="display:flex;flex-direction:column;gap:15px; max-height:65vh; overflow-y:auto; padding:5px;">
-                <div><label>工程：</label><select id="newProj" style="width:100%">${options}</select></div>
+                <div>
+                    <label>工程：</label>
+                    <select id="newProj" style="width:100%" onchange="app.handleNewCaseProjChange(this.value)">${options}</select>
+                </div>
+                <div><label>主辦部門：</label><input type="text" id="newDept" style="width:100%" readonly placeholder="選擇工程後自動帶入"></div>
                 <div><label>日期：</label><input type="date" id="newDate" value="${new Date().toISOString().split('T')[0]}" style="width:100%"></div>
                 
                 <h4 style="margin:10px 0 0 0; color:var(--primary); border-bottom:1px solid var(--border); padding-bottom:5px;">查核人員資訊</h4>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
                     <div><label>查核領隊</label><input type="text" id="newAuditLeader" value="${(app.state.user ? app.state.user.email.split('@')[0] : '')}" placeholder="例如：王小明"></div>
-                    <div><label>查核成員</label><input type="text" id="newAuditMembers" list="auditMembersList" placeholder="例如：陳大毛"></div>
+                    <div><label>查核成員</label><input type="text" id="newAuditMembers" placeholder="例如：陳大毛"></div>
                 </div>
 
                 <h4 style="margin:10px 0 0 0; color:var(--primary); border-bottom:1px solid var(--border); padding-bottom:5px;">承辦聯絡資訊</h4>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                    <div><label>承辦人姓名</label><input type="text" id="newContractorName" placeholder="例如：李四"></div>
-                    <div><label>承辦人電子信箱</label><input type="email" id="newContractorEmail" placeholder="li@example.com"></div>
-                    <div><label>承辦課長職稱</label><input type="text" id="newContractorManagerTitle" placeholder="例如：張課長"></div>
-                    <div><label>承辦課長電子信箱</label><input type="email" id="newContractorManagerEmail" placeholder="zhang@example.com"></div>
+                    <div>
+                        <label>承辦人姓名</label>
+                        <select id="newContractorName" style="width:100%" onchange="app.handleNewCaseNameChange(this.value, 'newContractorEmail')">
+                            <option value="">-- 請選擇 --</option>
+                        </select>
+                    </div>
+                    <div><label>承辦人電子信箱</label><input type="email" id="newContractorEmail" placeholder="自動填入" readonly></div>
+                    <div>
+                        <label>承辦課長</label>
+                        <select id="newContractorManagerTitle" style="width:100%" onchange="app.handleNewCaseNameChange(this.value, 'newContractorManagerEmail')">
+                            <option value="">-- 請選擇 --</option>
+                        </select>
+                    </div>
+                    <div><label>課長電子信箱</label><input type="email" id="newContractorManagerEmail" placeholder="自動填入" readonly></div>
                 </div>
 
                 <button class="btn btn-primary" style="margin-top:10px; justify-content:center;" onclick="app.submitNewCase()">確認登錄</button>
@@ -1780,15 +1838,43 @@ const app = {
         `;
         app.openModal('登錄查核案件', html);
     },
+    handleNewCaseProjChange: (abbr) => {
+        const p = app.state.projects.find(x => x.abbr === abbr);
+        const deptInput = document.getElementById('newDept');
+        const nameSelect = document.getElementById('newContractorName');
+        const mgrSelect = document.getElementById('newContractorManagerTitle');
+        const emailInput = document.getElementById('newContractorEmail');
+        const mgrEmailInput = document.getElementById('newContractorManagerEmail');
+
+        if (p && deptInput) {
+            deptInput.value = p.department || '';
+            // 連動更新承辦人下拉選單
+            const members = app.state.deptMembers.filter(m => m['主辦部門'] === p.department);
+            let optHtml = '<option value="">-- 請選擇 --</option>';
+            optHtml += members.map(m => `<option value="${m['姓名']}">${m['姓名']} (${m['職稱'] || ''})</option>`).join('');
+            
+            if (nameSelect) nameSelect.innerHTML = optHtml;
+            if (mgrSelect) mgrSelect.innerHTML = optHtml;
+            if (emailInput) emailInput.value = '';
+            if (mgrEmailInput) mgrEmailInput.value = '';
+        }
+    },
+    handleNewCaseNameChange: (name, emailId) => {
+        const dept = document.getElementById('newDept')?.value;
+        const emailInput = document.getElementById(emailId);
+        if (!emailInput) return;
+        const member = app.state.deptMembers.find(m => m['主辦部門'] === dept && m['姓名'] === name);
+        emailInput.value = member ? (member['信箱'] || '') : '';
+    },
     submitNewCase: async () => {
         const pAbbr = document.getElementById('newProj').value; 
         const date = document.getElementById('newDate').value;
         const auditLeader = document.getElementById('newAuditLeader').value.trim();
         const auditMembers = document.getElementById('newAuditMembers').value.trim();
-        const contractorName = document.getElementById('newContractorName').value.trim();
-        const contractorEmail = document.getElementById('newContractorEmail').value.trim();
-        const contractorManagerTitle = document.getElementById('newContractorManagerTitle').value.trim();
-        const contractorManagerEmail = document.getElementById('newContractorManagerEmail').value.trim();
+        const contractorName = document.getElementById('newContractorName').value;
+        const contractorEmail = document.getElementById('newContractorEmail').value;
+        const contractorManagerTitle = document.getElementById('newContractorManagerTitle').value;
+        const contractorManagerEmail = document.getElementById('newContractorManagerEmail').value;
 
         if (!pAbbr || !date) return app.showToast("工程與日期為必填", "error");
         
