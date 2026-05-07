@@ -219,10 +219,10 @@ function doPost(e) {
         break;
 
       case 'delete_deficiency':
-        if(roleData.role !== 'Admin') {
-            throw new Error("稽催功能僅限管理員。");
+        if(roleData.role !== 'Admin' && roleData.role !== 'SafetyUploader') {
+            throw new Error("刪除缺失功能權限不足。");
         }
-        result = manualRemindNotifications();
+        result = deleteDeficiency_(payload.deficiencyId);
         break;
 
       case 'batch_add_deficiencies':
