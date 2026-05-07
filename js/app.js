@@ -1921,13 +1921,6 @@ const app = {
         const member = app.state.deptMembers.find(m => m['主辦部門'] === dept && m['姓名'] === name);
         emailInput.value = member ? (member['信箱'] || '') : '';
     },
-    handleNameChange: (name, emailId = 'editContractorEmail') => {
-        const dept = document.getElementById('editDept')?.value;
-        const emailInput = document.getElementById(emailId);
-        if (!emailInput) return;
-        const member = app.state.deptMembers.find(m => m['主辦部門'] === dept && m['姓名'] === name);
-        emailInput.value = member ? (member['信箱'] || '') : '';
-    },
     submitNewCase: async () => {
         const pAbbr = document.getElementById('newProj').value; 
         const date = document.getElementById('newDate').value;
@@ -2513,31 +2506,38 @@ const app = {
         }
     },
 
-    // 處理部門連動
+    // 處理部門連動（同步重設承辦人與課長選單）
     handleDeptChange: (dept) => {
         const nameSelect = document.getElementById('editContractorName');
         const emailInput = document.getElementById('editContractorEmail');
+        const mgrSelect = document.getElementById('editContractorManagerTitle');
+        const mgrEmailInput = document.getElementById('editContractorManagerEmail');
         if (!nameSelect) return;
 
-        // 篩選該部門人員
         const members = app.state.deptMembers.filter(m => m['主辦部門'] === dept);
-        
+
         let html = '<option value="">-- 請選擇 --</option>';
         html += members.map(m => `<option value="${m['姓名']}">${m['姓名']} (${m['職稱'] || ''})</option>`).join('');
         nameSelect.innerHTML = html;
-        emailInput.value = ''; // 重置 Email
+        if (emailInput) emailInput.value = '';
+
+        if (mgrSelect) {
+            const managers = members.filter(m => m['職稱'] === '課長' || m['職稱'] === '站長');
+            let mgrHtml = '<option value="">-- 請選擇人員 --</option>';
+            mgrHtml += managers.map(m => `<option value="${m['姓名']}">${m['姓名']} (${m['職稱']})</option>`).join('');
+            mgrSelect.innerHTML = mgrHtml;
+        }
+        if (mgrEmailInput) mgrEmailInput.value = '';
     },
 
-    // 處理姓名連動 Email
-    handleNameChange: (name) => {
+    // 處理姓名連動 Email（支援承辦人與課長）
+    handleNameChange: (name, emailId = 'editContractorEmail') => {
         const dept = document.getElementById('editDept')?.value;
-        const emailInput = document.getElementById('editContractorEmail');
+        const emailInput = document.getElementById(emailId);
         if (!emailInput) return;
 
         const member = app.state.deptMembers.find(m => m['主辦部門'] === dept && m['姓名'] === name);
-        if (member) {
-            emailInput.value = member['信箱'] || '';
-        }
+        emailInput.value = member ? (member['信箱'] || '') : '';
     },
 
     submitRegisterDeptAccount: async () => {
