@@ -1485,7 +1485,10 @@ const app = {
                             <h4 style="margin:0 0 12px 0; color:inherit; display:flex; align-items:center; gap:8px;">
                                 <i class="fas fa-calendar-check"></i> 案件狀態資訊
                             </h4>
-                            <div><label style="font-size:0.8rem; color:inherit; opacity:0.8;">結案日期</label><input type="date" id="editCloseDate" value="${c['結案日期'] ? new Date(c['結案日期']).toISOString().split('T')[0] : ''}" style="width:100%"></div>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                                <div><label style="font-size:0.8rem; color:inherit; opacity:0.8;">查核日期</label><input type="date" id="editAuditDate" value="${c['查核日期'] ? new Date(c['查核日期']).toISOString().split('T')[0] : ''}" style="width:100%"></div>
+                                <div><label style="font-size:0.8rem; color:inherit; opacity:0.8;">結案日期</label><input type="date" id="editCloseDate" value="${c['結案日期'] ? new Date(c['結案日期']).toISOString().split('T')[0] : ''}" style="width:100%"></div>
+                            </div>
                         </div>
 
                         <button class="btn btn-primary" style="width:100%; justify-content:center; height:45px; font-size:1rem;" onclick="app.submitEditCaseInfo('${id}')">
@@ -1517,6 +1520,7 @@ const app = {
         const contractorEmail = document.getElementById('editContractorEmail').value;
         const contractorManagerTitle = document.getElementById('editContractorManagerTitle').value;
         const contractorManagerEmail = document.getElementById('editContractorManagerEmail').value;
+        const auditDate = document.getElementById('editAuditDate').value;
         const closeDate = document.getElementById('editCloseDate').value;
 
         // 結案防呆邏輯
@@ -1528,6 +1532,7 @@ const app = {
         app.setModalLoading(true);
         try {
             const details = {
+                auditDate,
                 inspector,
                 auditLeader,
                 auditMembers,
