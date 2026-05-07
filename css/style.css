@@ -199,7 +199,9 @@ body {
     gap: 20px;
 }
 
-.stat-card:hover { transform: translateY(-4px); border-color: var(--primary); }
+.stat-card:hover { transform: translateY(-4px); border-color: var(--primary); box-shadow: 0 8px 25px rgba(99, 102, 241, 0.15); }
+.stat-card.warning:hover { border-color: var(--warning); box-shadow: 0 8px 25px rgba(244, 63, 94, 0.15); }
+.stat-card.success:hover { border-color: var(--success); box-shadow: 0 8px 25px rgba(16, 185, 129, 0.15); }
 
 .stat-icon {
     width: 54px; height: 54px;
@@ -244,6 +246,14 @@ body {
     height: 1px;
     background: var(--border);
     margin: 0 -20px;
+}
+
+.actions-separator {
+    width: 1px;
+    height: 24px;
+    background: var(--border);
+    margin: 0 4px;
+    flex-shrink: 0;
 }
 
 .toolbar-left, .toolbar-right {
@@ -293,6 +303,13 @@ body {
     background: rgba(0,0,0,0.03);
     border-radius: 12px;
 }
+:root .view-switch-wrapper,
+[data-theme="dark"] .view-switch-wrapper {
+    background: rgba(255,255,255,0.05);
+}
+[data-theme="indigo"] .view-switch-wrapper {
+    background: rgba(255,255,255,0.06);
+}
 
 .view-switch {
     display: flex;
@@ -322,6 +339,11 @@ body {
 .switch-btn:hover:not(.active) {
     background: rgba(0,0,0,0.05);
     color: var(--text-main);
+}
+:root .switch-btn:hover:not(.active),
+[data-theme="dark"] .switch-btn:hover:not(.active),
+[data-theme="indigo"] .switch-btn:hover:not(.active) {
+    background: rgba(255,255,255,0.08);
 }
 
 /* 按鈕進階樣式 */
@@ -557,6 +579,15 @@ body {
     border: 2px dashed #d1d5db;
     opacity: 0.7;
 }
+:root .file-card.empty-file,
+[data-theme="dark"] .file-card.empty-file {
+    background: rgba(255,255,255,0.03);
+    border-color: rgba(255,255,255,0.1);
+}
+[data-theme="indigo"] .file-card.empty-file {
+    background: rgba(255,255,255,0.04);
+    border-color: rgba(255,255,255,0.1);
+}
 
 .file-card-header {
     display: flex;
@@ -662,6 +693,25 @@ body {
     font-size: 0.8rem;
     color: #9a3412;
     margin-top: 8px;
+}
+:root .alert-callout,
+[data-theme="dark"] .alert-callout {
+    background: rgba(249, 115, 22, 0.1);
+    border-color: rgba(249, 115, 22, 0.25);
+    border-left-color: #f97316;
+    color: #fdba74;
+}
+[data-theme="indigo"] .alert-callout {
+    background: rgba(249, 115, 22, 0.12);
+    border-color: rgba(249, 115, 22, 0.2);
+    border-left-color: #f97316;
+    color: #fdba74;
+}
+[data-theme="light"] .alert-callout {
+    background: #fff7ed;
+    border-color: #ffedd5;
+    border-left-color: #f97316;
+    color: #9a3412;
 }
 
 .flow-card-btn {
@@ -803,6 +853,9 @@ input[type="file"]:hover { border-color: var(--primary); }
 .case-table th { background: rgba(0,0,0,0.05); text-align: left; padding: 10px 12px; font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; white-space: nowrap; }
 .case-table td { padding: 8px 10px; border-top: 1px solid var(--border); font-size: 0.8rem; line-height: 1.3; }
 .case-table tr:hover { background: rgba(0,0,0,0.02); }
+:root .case-table tbody tr:hover,
+[data-theme="dark"] .case-table tbody tr:hover,
+[data-theme="indigo"] .case-table tbody tr:hover { background: rgba(255,255,255,0.03); }
 
 .badge-status-s1 { background: var(--info); color: white; }
 .badge-status-s3 { background: #8b5cf6; color: white; }
@@ -847,6 +900,10 @@ input[type="file"]:hover { border-color: var(--primary); }
 .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-main); }
 .btn-outline:hover { background: var(--bg-input); border-color: var(--primary); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+.btn-warning { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; box-shadow: 0 4px 14px rgba(245, 158, 11, 0.3); }
+.btn-warning:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4); }
+.btn-danger-outline { background: transparent; border: 1px solid var(--warning); color: var(--warning); }
+.btn-danger-outline:hover { background: rgba(244, 63, 94, 0.08); }
 
 /* Toast Notification */
 .toast {
@@ -1035,6 +1092,13 @@ input[type="file"]:hover { border-color: var(--primary); }
     padding: 4px;
     border-radius: 12px;
 }
+:root .mode-switch-wrapper,
+[data-theme="dark"] .mode-switch-wrapper {
+    background: rgba(255,255,255,0.05);
+}
+[data-theme="indigo"] .mode-switch-wrapper {
+    background: rgba(255,255,255,0.06);
+}
 .mode-switch {
     display: flex;
     gap: 4px;
@@ -1060,6 +1124,12 @@ input[type="file"]:hover { border-color: var(--primary); }
 }
 .mode-btn:hover:not(.active) {
     color: var(--text-main);
+    background: rgba(0,0,0,0.03);
+}
+:root .mode-btn:hover:not(.active),
+[data-theme="dark"] .mode-btn:hover:not(.active),
+[data-theme="indigo"] .mode-btn:hover:not(.active) {
+    background: rgba(255,255,255,0.06);
 }
 
 /* S1-S4 階段進度條 (卡片用) */
@@ -1082,6 +1152,13 @@ input[type="file"]:hover { border-color: var(--primary); }
     display: flex;
     overflow: hidden;
     gap: 2px;
+}
+:root .progress-track,
+[data-theme="dark"] .progress-track {
+    background: rgba(255,255,255,0.08);
+}
+[data-theme="indigo"] .progress-track {
+    background: rgba(255,255,255,0.1);
 }
 .progress-step {
     flex: 1;

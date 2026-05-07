@@ -322,6 +322,8 @@ const app = {
             if (btnRemind) btnRemind.classList.remove('hidden');
             if (btnProjMgmt) btnProjMgmt.classList.remove('hidden');
             if (btnAdminUsers) btnAdminUsers.classList.remove('hidden');
+            const adminSep = document.getElementById('adminSeparator');
+            if (adminSep) adminSep.classList.remove('hidden');
             const btnInitSystem = document.getElementById('btnInitSystem');
             const btnDeptAccounts = document.getElementById('btnDeptAccounts');
             const btnDeptList = document.getElementById('btnDeptList');
