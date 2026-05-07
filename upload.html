@@ -230,6 +230,14 @@
             width: 0;
             transition: width 0.3s;
         }
+        .progress-bar .fill.indeterminate {
+            width: 40%;
+            animation: indeterminate 1.5s infinite ease-in-out;
+        }
+        @keyframes indeterminate {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(300%); }
+        }
 
         .loading-screen {
             text-align: center;
@@ -403,10 +411,12 @@
             return result;
         }
 
-        // 初始化
+        // 初始化（支援 hash 和 query string 兩種格式）
         async function init() {
-            const params = new URLSearchParams(window.location.search);
-            currentToken = params.get('token');
+            const hashStr = window.location.hash.substring(1);
+            const hashParams = new URLSearchParams(hashStr);
+            const queryParams = new URLSearchParams(window.location.search);
+            currentToken = hashParams.get('token') || queryParams.get('token');
 
             if (!currentToken) {
                 showError('缺少上傳驗證碼，請從信件中的連結進入此頁面。');
@@ -441,18 +451,27 @@
             document.getElementById('infoEmail').textContent = data.authorizedEmail || '-';
             document.getElementById('infoExpiry').textContent = data.tokenExpiry || '-';
 
-            // S2 下載連結
+            // S2 下載連結（使用 DOM API 防 XSS）
             if (data.s2Links && data.s2Links.length > 0) {
                 const s2Section = document.getElementById('s2Section');
                 const linksList = document.getElementById('s2LinksList');
                 s2Section.classList.remove('hidden');
-                linksList.innerHTML = data.s2Links.map(l => `
-                    <a href="${l.downloadUrl}" class="s2-link" target="_blank">
-                        <i class="fas fa-file-pdf"></i>
-                        <span>${l.label}</span>
-                        <i class="fas fa-download" style="margin-left:auto;"></i>
-                    </a>
-                `).join('');
+                linksList.innerHTML = '';
+                data.s2Links.forEach(function(l) {
+                    const a = document.createElement('a');
+                    a.href = l.downloadUrl;
+                    a.className = 's2-link';
+                    a.target = '_blank';
+                    a.innerHTML = '<i class="fas fa-file-pdf"></i>';
+                    const span = document.createElement('span');
+                    span.textContent = l.label;
+                    a.appendChild(span);
+                    const icon = document.createElement('i');
+                    icon.className = 'fas fa-download';
+                    icon.style.marginLeft = 'auto';
+                    a.appendChild(icon);
+                    linksList.appendChild(a);
+                });
             }
         }
 
@@ -509,22 +528,18 @@
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 上傳中...';
             progress.classList.remove('hidden');
-
-            // 模擬進度條（讀取檔案階段）
-            fill.style.width = '20%';
+            fill.classList.add('indeterminate');
 
             try {
-                // 讀取 Base64
                 const base64 = await fileToBase64(selectedFile);
-                fill.style.width = '50%';
 
-                // 發送至 GAS
                 const res = await apiCall('token_upload_file', {
                     token: currentToken,
                     fileBase64: base64,
                     fileName: selectedFile.name
                 });
 
+                fill.classList.remove('indeterminate');
                 fill.style.width = '100%';
 
                 // 顯示成功
@@ -537,6 +552,8 @@
                 alert('上傳失敗：' + e.message);
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-paper-plane"></i> 確認上傳';
+                fill.classList.remove('indeterminate');
+                fill.style.width = '0';
                 progress.classList.add('hidden');
             }
         }
@@ -561,7 +578,9 @@
             document.getElementById('btnUpload').disabled = true;
             document.getElementById('btnUpload').innerHTML = '<i class="fas fa-paper-plane"></i> 確認上傳';
             document.getElementById('uploadProgress').classList.add('hidden');
-            document.getElementById('progressFill').style.width = '0';
+            const pFill = document.getElementById('progressFill');
+            pFill.style.width = '0';
+            pFill.classList.remove('indeterminate');
             document.getElementById('uploadSection').classList.remove('hidden');
             document.getElementById('successView').classList.add('hidden');
             // 重新顯示 S2 下載區

@@ -1,2 +1,21 @@
-# 忽略包含敏感環境變數的設定檔
+# 敏感環境變數設定檔
 js/config.js
+
+# 環境變數
+.env
+.env.*
+
+# 系統檔案
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+
+# 依賴
+node_modules/
+
+# 日誌
+*.log

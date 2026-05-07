@@ -1527,3 +1527,18 @@ input[type="file"]:hover { border-color: var(--primary); }
     color: var(--success);
     font-weight: 700;
 }
+
+/* 列印樣式 */
+@media print {
+    .top-nav, .dashboard, .toolbar, .workflow-section, .mode-switch-wrapper,
+    .card-footer, .nav-actions, #toastContainer, #modalOverlay, #globalProgress,
+    #logoutBtn, #googleLoginBtn, .view-switch-wrapper, .filter-group,
+    button, select, .search-wrapper { display: none !important; }
+    body { background: #fff !important; color: #000 !important; padding: 0; }
+    .main-container { max-width: 100%; padding: 10px; }
+    .case-card { break-inside: avoid; box-shadow: none !important; border: 1px solid #ccc !important; background: #fff !important; }
+    .case-card:hover { transform: none !important; }
+    .grid-view { gap: 16px; }
+    .badge { border: 1px solid #ccc; }
+    a { text-decoration: none; color: #000; }
+}

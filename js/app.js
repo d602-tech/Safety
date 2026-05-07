@@ -1,6 +1,13 @@
 /**
- * 前端核心邏輯與狀態管理 v5.4
+ * 前端核心邏輯與狀態管理 v5.5
  */
+
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
+}
 
 const GOOGLE_CLIENT_ID = window.ENV && window.ENV.GOOGLE_CLIENT_ID ? window.ENV.GOOGLE_CLIENT_ID : "791038911460-8tfq97vhrvr4iaq5r3s1ti1abfpuddd9.apps.googleusercontent.com";
 
@@ -51,7 +58,7 @@ const app = {
         if (!container) return;
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
-        toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> <span>${msg}</span>`;
+        toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> <span>${escapeHtml(msg)}</span>`;
         container.appendChild(toast);
         setTimeout(() => {
             toast.classList.add('toast-out');

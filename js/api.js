@@ -4,6 +4,7 @@
 const GAS_URL = window.ENV && window.ENV.GAS_URL ? window.ENV.GAS_URL : 'https://script.google.com/macros/s/AKfycbzUoQVnY9eLJSKCCVCjg259y9uJuTC4tLMh6n0-ldWDa0RQUpC5YusYAm5hVjxB5_GY/exec';
 
 let _authToken = null; // 存放 Google 登入後核發的 JWT ID Token
+const _inflight = new Set(); // 防重複提交追蹤
 
 const api = {
     /** 設置驗證 Token */
@@ -16,29 +17,34 @@ const api = {
         _authToken = null;
     },
 
-    /** 通用 Fetch 封裝，自動夾帶 Token */
+    /** 通用 Fetch 封裝，自動夾帶 Token，含防重複提交 */
     request: async (action, payload = {}) => {
+        const dedupeKey = action + ':' + (payload.caseId || payload.id || '');
+        if (_inflight.has(dedupeKey)) {
+            throw new Error('請勿重複送出，請稍候...');
+        }
+        _inflight.add(dedupeKey);
         try {
-            // 在每一包 payload 中強制塞入 token 交由 GAS 驗證
             if (_authToken) {
                 payload.token = _authToken;
             }
 
             const response = await fetch(GAS_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // 避免觸發 CORS 複雜預檢
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action, payload })
             });
 
             const result = await response.json();
 
-            // 處理 GAS 傳回的業務邏輯錯誤
             if (!result.success) throw new Error(result.message || '伺服器未知的錯誤');
 
             return result;
         } catch (error) {
             console.error(`API Error [${action}]:`, error);
             throw error;
+        } finally {
+            _inflight.delete(dedupeKey);
         }
     },
 
