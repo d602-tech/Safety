@@ -1,5 +1,5 @@
 /**
- * 前端核心邏輯與狀態管理 v5.5
+ * 前端核心邏輯與狀態管理 v5.6
  */
 
 function escapeHtml(str) {
@@ -17,23 +17,36 @@ const app = {
         if (loader) show ? loader.classList.remove('hidden') : loader.classList.add('hidden');
     },
 
-    openModal: (title, html) => {
+    openModal: (title, html, opts) => {
         const overlay = document.getElementById('modalOverlay');
         const modalTitle = document.getElementById('modalTitle');
         const modalBody = document.getElementById('modalBody');
         const modal = document.querySelector('.modal');
-        
+
         if (overlay && modalTitle && modalBody) {
             modalTitle.innerText = title;
             modalBody.innerHTML = html;
             overlay.classList.remove('hidden');
-            if (modal) modal.classList.remove('modal-lg'); 
+            if (modal) {
+                if (opts && opts.large) modal.classList.add('modal-lg');
+                else modal.classList.remove('modal-lg');
+            }
         }
     },
 
     closeModal: () => {
         const overlay = document.getElementById('modalOverlay');
         if (overlay) overlay.classList.add('hidden');
+    },
+
+    toggleNavMore: (e) => {
+        e.stopPropagation();
+        const menu = document.getElementById('navMoreMenu');
+        if (menu) menu.classList.toggle('open');
+    },
+    closeNavMore: () => {
+        const menu = document.getElementById('navMoreMenu');
+        if (menu) menu.classList.remove('open');
     },
 
     state: {
@@ -397,6 +410,15 @@ const app = {
         if (selector) selector.value = theme;
     },
 
+    toggleCardDetails: (btn) => {
+        const details = btn.nextElementSibling;
+        if (!details) return;
+        const expanded = details.classList.toggle('expanded');
+        btn.classList.toggle('expanded', expanded);
+        btn.querySelector('i').style.transform = expanded ? 'rotate(180deg)' : '';
+        btn.childNodes[1].textContent = expanded ? ' 收合' : ' 詳細資訊';
+    },
+
     toggleViewMode: (mode) => {
         app.state.viewMode = mode;
         localStorage.setItem('viewMode', mode);
@@ -728,6 +750,7 @@ const app = {
                     </div>
                 `;
             } else {
+                const hasDetails = !!(c['承辦人姓名'] || c['承辦課長職稱'] || c['查核人員']);
                 card.innerHTML = `
                     ${countdownHtml}
                     <div class="card-header" onclick="event.stopPropagation()">
@@ -738,11 +761,14 @@ const app = {
                         <div class="info-row"><i class="fas fa-building"></i> ${c['主辦部門']}</div>
                         <div class="info-row"><i class="fas fa-hard-hat"></i> ${c['承攬商']}</div>
                         <div class="info-row"><i class="fas fa-calendar-alt"></i> 查核：${c['查核日期']}</div>
-                        <div class="info-row"><i class="fas fa-user-tie"></i> 人員：${c['查核人員'] || '無'}</div>
-                        ${c['承辦人姓名'] ? `<div class="info-row"><i class="fas fa-user"></i> 承辦：${c['承辦人姓名']} <span style="font-size:0.75rem;">${c['承辦人電子信箱'] ? '('+c['承辦人電子信箱']+')' : ''}</span></div>` : ''}
-                        ${c['承辦課長職稱'] ? `<div class="info-row"><i class="fas fa-user-shield"></i> 課長：${c['承辦課長職稱']} <span style="font-size:0.75rem;">${c['承辦課長電子信箱'] ? '('+c['承辦課長電子信箱']+')' : ''}</span></div>` : ''}
                         <div class="info-row" style="${isOverdue ? 'color:var(--warning);font-weight:700;' : ''}"><i class="fas fa-clock"></i> 限辦：${c['最晚應核章日期']}</div>
                         ${c['結案日期'] ? `<div class="info-row" style="color:var(--success);font-weight:700;"><i class="fas fa-check"></i> 結案：${new Date(c['結案日期']).toISOString().split('T')[0]}</div>` : ''}
+                        ${hasDetails ? `<button class="card-details-toggle" onclick="event.stopPropagation(); app.toggleCardDetails(this)"><i class="fas fa-chevron-down"></i> 詳細資訊</button>
+                        <div class="card-details">
+                            <div class="info-row"><i class="fas fa-user-tie"></i> 人員：${c['查核人員'] || '無'}</div>
+                            ${c['承辦人姓名'] ? `<div class="info-row"><i class="fas fa-user"></i> 承辦：${c['承辦人姓名']}</div>` : ''}
+                            ${c['承辦課長職稱'] ? `<div class="info-row"><i class="fas fa-user-shield"></i> 課長：${c['承辦課長職稱']}</div>` : ''}
+                        </div>` : ''}
                         
                         ${app.state.systemMode === 'progress' ? app.getProgressHtml(c) : `
                             <div style="margin-top:10px; padding:10px; background:rgba(0,0,0,0.03); border-radius:10px; font-size:0.8rem;">
@@ -1500,7 +1526,7 @@ const app = {
             `;
             const projInfo = app.state.projects.find(p => p.abbr === c['工程簡稱']);
             const snLabel = projInfo ? `${projInfo.serial} - ` : '';
-            app.openModal(`案件管理: ${snLabel}${c['工程簡稱']}`, html);
+            app.openModal(`案件管理: ${snLabel}${c['工程簡稱']}`, html, { large: true });
             setTimeout(() => app.renderAuditMemberInputs(c['查核成員']), 50);
         }
         
@@ -2783,3 +2809,4 @@ const app = {
 };
 
 window.onload = () => app.initAuth();
+document.addEventListener('click', () => app.closeNavMore());
