@@ -1427,7 +1427,26 @@ function getAttachmentsForCases_(cases) {
  */
 function sendTestEmail_() {
   try {
-    const fakeCase = {
+    // 嘗試取得第一筆真實案件作為測試資料，讓上傳連結可實際使用
+    const allAudits = getAuditRecords_();
+    const realCase = allAudits.find(a => a['辦理狀態'] !== STATUS.STAGE4);
+
+    const testCase = realCase ? {
+      id: realCase.id,
+      '工程簡稱': realCase['工程簡稱'],
+      '工程名稱': realCase['工程名稱'] || realCase['工程簡稱'],
+      '承攬商': realCase['承攬商'] || '-',
+      '主辦部門': realCase['主辦部門'] || '-',
+      '最晚應核章日期': realCase['最晚應核章日期'] || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'),
+      '查核日期': realCase['查核日期'] || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'),
+      '辦理狀態': realCase['辦理狀態'] || STATUS.STAGE2,
+      '承辦人姓名': realCase['承辦人員姓名'] || realCase['承辦人姓名'] || '承辦人',
+      '承辦人電子信箱': TEST_EMAIL,
+      '承辦課長職稱': '課長',
+      '承辦課長電子信箱': TEST_EMAIL,
+      'S2員工查核檔案位置': realCase['S2員工查核檔案位置'] || '',
+      'S2廠商查核檔案位置': realCase['S2廠商查核檔案位置'] || ''
+    } : {
       id: 'TEST001',
       '工程簡稱': '測試工程',
       '工程名稱': '範例測試工程名稱',
@@ -1442,26 +1461,28 @@ function sendTestEmail_() {
       '承辦課長電子信箱': TEST_EMAIL
     };
 
-    // 產位測試用的上傳連結 (僅供預覽介面，Token 為虛擬)
-    const testUrl = getUploadPageUrl_('TEST_TOKEN_PREVIEW');
+    // 產生真實 Token 並寫入資料庫，讓測試信的上傳連結可實際使用
+    const dueDateStr = testCase['最晚應核章日期'];
+    const testToken = generateUploadToken_(testCase.id, TEST_EMAIL, dueDateStr);
+    const testUrl = getUploadPageUrl_(testToken);
 
     // 測試三種模板
     GmailApp.sendEmail(TEST_EMAIL,
       '【測試信】第1階段 - S2已上傳即時通知',
       '',
-      { htmlBody: buildStage1EmailHtml_(fakeCase, testUrl) }
+      { htmlBody: buildStage1EmailHtml_(testCase, testUrl) }
     );
 
     GmailApp.sendEmail(TEST_EMAIL,
       '【測試信】第2階段 - 到期前3日提醒',
       '',
-      { htmlBody: buildStage2EmailHtml_(fakeCase, 3, testUrl) }
+      { htmlBody: buildStage2EmailHtml_(testCase, 3, testUrl) }
     );
 
     GmailApp.sendEmail(TEST_EMAIL,
       '【測試信】第3階段 - 最後1日催辦',
       '',
-      { htmlBody: buildStage3EmailHtml_(fakeCase, 1, testUrl) }
+      { htmlBody: buildStage3EmailHtml_(testCase, 1, testUrl) }
     );
 
     return { success: true, message: `已成功發送 3 封測試信至 ${TEST_EMAIL}` };
