@@ -1894,7 +1894,8 @@ function tokenUploadFile_(payload) {
  * 產生上傳頁面的完整 URL
  */
 function getUploadPageUrl_(token) {
-  return SYSTEM_URL + 'upload.html?token=' + token;
+  const base = SYSTEM_URL.endsWith('/') ? SYSTEM_URL : SYSTEM_URL + '/';
+  return base + 'upload.html#token=' + encodeURIComponent(token);
 }
 
 
@@ -1932,7 +1933,7 @@ function _emailHeader_(title, subtitle, accentColor) {
 function _emailFooter_(systemUrl, uploadUrl) {
   systemUrl = systemUrl || SYSTEM_URL;
   const uploadBtn = uploadUrl ? `
-        <a href="${uploadUrl}" style="display:inline-block;background:#059669;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;padding:10px 22px;border-radius:6px;margin-right:8px;">📤 上傳核章版</a>
+        <a href="${uploadUrl}" style="display:inline-block;background:#059669;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;padding:10px 22px;border-radius:6px;margin-right:8px;">&#9654; 上傳核章版</a>
   ` : '';
   return `
 <!-- Footer -->
@@ -1969,7 +1970,7 @@ function _caseInfoTable_(audit, uploadUrl) {
     <tr>
       <td style="padding:10px 14px;font-size:12px;color:#64748b;font-weight:600;white-space:nowrap;width:110px;border-bottom:1px solid #e2e8f0;background:#f8fafc;">S2 改善單</td>
       <td style="padding:10px 14px;font-size:14px;color:#0f172a;border-bottom:1px solid #e2e8f0;">
-        <a href="${downloadUrl}" style="color:#1e40af;font-weight:700;text-decoration:none;">📥 點此直接下載 S2 檔案</a>
+        <a href="${downloadUrl}" style="color:#1e40af;font-weight:700;text-decoration:none;">&#9660; 點此直接下載 S2 檔案</a>
       </td>
     </tr>`;
   }
@@ -1978,7 +1979,7 @@ function _caseInfoTable_(audit, uploadUrl) {
     <tr style="background:#f0fdf4;">
       <td style="padding:10px 14px;font-size:12px;color:#166534;font-weight:600;white-space:nowrap;width:110px;border-bottom:1px solid #e2e8f0;">安全上傳連結</td>
       <td style="padding:10px 14px;font-size:14px;color:#059669;border-bottom:1px solid #e2e8f0;">
-        <a href="${uploadUrl}" style="color:#059669;font-weight:700;text-decoration:none;">📤 點此直接進入上傳頁面 (免登入)</a>
+        <a href="${uploadUrl}" style="color:#059669;font-weight:700;text-decoration:none;">&#9654; 點此直接進入上傳頁面 (免登入)</a>
       </td>
     </tr>` : '';
 
@@ -2014,7 +2015,7 @@ function _caseInfoTable_(audit, uploadUrl) {
  * Stage 1 HTML 模板：S2 已上傳，通知承辦人可先行下載轉知承攬商改善
  */
 function buildStage1EmailHtml_(audit, uploadUrl) {
-  const uploadHint = uploadUrl ? `<br>📤 或直接<a href="${uploadUrl}" style="color:#059669;font-weight:700;">點此上傳 S3 核章版</a>（免登入）` : '';
+  const uploadHint = uploadUrl ? `<br>&#9654; 或直接<a href="${uploadUrl}" style="color:#059669;font-weight:700;">點此上傳 S3 核章版</a>（免登入）` : '';
   return _emailHeader_(
     '改善單已上傳，可先行下載轉知承攬商改善',
     `${audit['主辦部門']} ｜ ${audit['工程簡稱']}`,
@@ -2037,7 +2038,7 @@ function buildStage1EmailHtml_(audit, uploadUrl) {
   <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
     <tr><td style="background:#ecfdf5;border-left:4px solid #10b981;border-radius:0 8px 8px 0;padding:14px 18px;">
       <p style="margin:0;font-size:14px;color:#065f46;line-height:1.7;">
-        📋 <strong>後續步驟：</strong>請確認改善內容正確後，
+        &#10003; <strong>後續步驟：</strong>請確認改善內容正確後，
         上傳「S3 工作隊核章版」完成程序。${uploadHint}
       </p>
     </td></tr>
@@ -2078,7 +2079,7 @@ function buildStage2EmailHtml_(audit, daysLeft, uploadUrl) {
   <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
     <tr><td style="background:#fef2f2;border-left:4px solid #ef4444;border-radius:0 8px 8px 0;padding:14px 18px;">
       <p style="margin:0;font-size:14px;color:#7f1d1d;line-height:1.7;">
-        ⚠️ <strong>重要提醒：</strong>請特別注意<strong>第一個章的核章日期</strong>，
+        &#9888; <strong>重要提醒：</strong>請特別注意<strong>第一個章的核章日期</strong>，
         核章日期必須在截止日 <strong>${dueDate}</strong> 之前，否則將視為逾期。
       </p>
     </td></tr>
@@ -2103,7 +2104,7 @@ function buildStage3EmailHtml_(audit, daysLeft, uploadUrl) {
   <!-- 緊急警示橫幅 -->
   <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
     <tr><td align="center" style="background:#fee2e2;border:2px solid #ef4444;border-radius:10px;padding:20px;">
-      <div style="font-size:28px;margin-bottom:8px;">🚨</div>
+      <div style="font-size:28px;margin-bottom:8px;color:#991b1b;">&#9888;</div>
       <div style="font-size:18px;font-weight:800;color:#991b1b;">最後 ${daysLeft} 天！請立即處理</div>
       <div style="font-size:13px;color:#7f1d1d;margin-top:6px;">此訊息已同步通知承辦人及課長</div>
     </td></tr>
@@ -2120,8 +2121,8 @@ function buildStage3EmailHtml_(audit, daysLeft, uploadUrl) {
   <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
     <tr><td style="background:#fef2f2;border-left:4px solid #ef4444;border-radius:0 8px 8px 0;padding:14px 18px;margin-bottom:12px;">
       <p style="margin:0;font-size:14px;color:#7f1d1d;line-height:1.8;">
-        🔴 <strong>第一點：</strong>請<strong>立即</strong>上傳 S3 工作隊核章版至系統。<br>
-        🔴 <strong>第二點：</strong>請特別確認<strong>第一個章的核章日期</strong>必須在
+        &#9679; <strong>第一點：</strong>請<strong>立即</strong>上傳 S3 工作隊核章版至系統。<br>
+        &#9679; <strong>第二點：</strong>請特別確認<strong>第一個章的核章日期</strong>必須在
         <strong>${dueDate}</strong> 當日或之前，核章日期不符將視為無效。
       </p>
     </td></tr>
@@ -2146,7 +2147,7 @@ function buildOverdueEmailHtml_(audit, daysOverdue, uploadUrl) {
   <!-- 逾期天數大圖示 -->
   <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
     <tr><td align="center" style="background:#f5f3ff;border:2px solid #7c3aed;border-radius:10px;padding:20px;">
-      <div style="font-size:14px;color:#4c1d95;font-weight:600;letter-spacing:1px;">⛔ 已逾期</div>
+      <div style="font-size:14px;color:#4c1d95;font-weight:600;letter-spacing:1px;">&#9888; 已逾期</div>
       <div style="font-size:64px;font-weight:900;color:#6d28d9;line-height:1;margin:8px 0;">${daysOverdue}</div>
       <div style="font-size:16px;color:#4c1d95;font-weight:700;">天</div>
       <div style="font-size:12px;color:#7c3aed;margin-top:6px;">截止日：${dueDate}</div>
@@ -2164,8 +2165,8 @@ function buildOverdueEmailHtml_(audit, daysOverdue, uploadUrl) {
   <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
     <tr><td style="background:#f5f3ff;border-left:4px solid #7c3aed;border-radius:0 8px 8px 0;padding:14px 18px;">
       <p style="margin:0;font-size:14px;color:#4c1d95;line-height:1.8;">
-        ⛔ <strong>第一點：</strong>請<strong>立即</strong>上傳 S3 工作隊核章版至系統。<br>
-        ⛔ <strong>第二點：</strong>核章日期若早於截止日 <strong>${dueDate}</strong> 仍可受理，請確認後盡快上傳。
+        &#9679; <strong>第一點：</strong>請<strong>立即</strong>上傳 S3 工作隊核章版至系統。<br>
+        &#9679; <strong>第二點：</strong>核章日期若早於截止日 <strong>${dueDate}</strong> 仍可受理，請確認後盡快上傳。
       </p>
     </td></tr>
   </table>
